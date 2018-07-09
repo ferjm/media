@@ -1,12 +1,14 @@
 pub extern crate servo_media_audio as audio;
 #[cfg(not(target_os = "android"))]
 extern crate servo_media_gstreamer;
+pub extern crate servo_media_player as player;
 use std::sync::{self, Arc, Mutex, Once};
 
 use audio::context::{AudioContext, AudioContextOptions};
 use audio::decoder::DummyAudioDecoder;
 use audio::sink::DummyAudioSink;
 use audio::AudioBackend;
+use player::{DummyPlayer, Player, PlayerBackend};
 
 pub struct ServoMedia;
 
@@ -26,6 +28,13 @@ impl AudioBackend for DummyBackend {
         Ok(DummyAudioSink)
     }
     fn init() {}
+}
+
+impl PlayerBackend for DummyBackend {
+    type Player = DummyPlayer;
+    fn make_player() -> Self::Player {
+        DummyPlayer {}
+    }
 }
 
 #[cfg(not(target_os = "android"))]
@@ -53,5 +62,9 @@ impl ServoMedia {
 
     pub fn create_audio_context(&self, options: AudioContextOptions) -> AudioContext<Backend> {
         AudioContext::new(options)
+    }
+
+    pub fn create_player(&self) -> Box<Player> {
+        Box::new(Backend::make_player())
     }
 }

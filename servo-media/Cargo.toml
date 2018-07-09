@@ -9,6 +9,8 @@ name = "servo_media"
 [dependencies.servo-media-audio]
 path = "../audio"
 
+[dependencies.servo-media-player]
+path = "../player"
 
 [target.'cfg(not(target_os = "android"))'.dependencies.servo-media-gstreamer]
 path = "../backends/gstreamer"

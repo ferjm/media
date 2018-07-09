@@ -1,0 +1,13 @@
+[package]
+name = "servo-media-player"
+version = "0.1.0"
+authors = ["Fernando Jiménez Moreno <ferjmoreno@gmail.com>"]
+license = "MPL-2.0"
+
+[lib]
+name = "servo_media_player"
+
+[dependencies]
+ipc-channel = "0.9"
+serde = "1.0.8"
+serde_derive = "1.0.8"
