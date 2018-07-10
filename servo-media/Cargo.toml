@@ -31,7 +31,7 @@ optional = true
 version = "0.11"
 
 [features]
-default = []
+default = ["gst"]
 gst = ["gstreamer", "gstreamer-audio", "gstreamer-app"]
 
 [lib]
