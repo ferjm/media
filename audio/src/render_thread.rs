@@ -12,7 +12,6 @@ use oscillator_node::OscillatorNode;
 use sink::AudioSink;
 use std::sync::mpsc::{Receiver, Sender};
 
-#[derive(Debug)]
 pub enum AudioRenderThreadMsg {
     CreateNode(AudioNodeInit, Sender<NodeId>),
     ConnectPorts(PortId<OutputPort>, PortId<InputPort>),

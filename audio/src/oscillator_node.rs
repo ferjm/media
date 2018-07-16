@@ -1,6 +1,6 @@
 use node::{AudioNodeType, ChannelInfo};
 use block::{Chunk, Tick};
-use node::{AudioNodeEngine, AudioScheduledSourceNodeMessage, BlockInfo};
+use node::{AudioNodeEngine, AudioScheduledSourceNodeMessage, BlockInfo, OnEndedCallback};
 use param::{Param, ParamType};
 use num_traits::cast::NumCast;
 
@@ -47,6 +47,8 @@ pub(crate) struct OscillatorNode {
     start_at: Option<Tick>,
     /// Time at which the source should stop playing.
     stop_at: Option<Tick>,
+    /// The ended event callback.
+    onended_callback: Option<OnEndedCallback>,
 }
 
 
@@ -59,22 +61,12 @@ impl OscillatorNode {
             phase: 0.,
             start_at: None,
             stop_at: None,
+            onended_callback: None,
         }
     }
 
     pub fn update_parameters(&mut self, info: &BlockInfo, tick: Tick) -> bool {
         self.frequency.update(info, tick)
-    }
-
-    pub fn handle_source_node_message(&mut self, message: AudioScheduledSourceNodeMessage, sample_rate: f32) {
-        match message {
-            AudioScheduledSourceNodeMessage::Start(when) => {
-                self.start(Tick::from_time(when, sample_rate));
-            }
-            AudioScheduledSourceNodeMessage::Stop(when) => {
-                self.stop(Tick::from_time(when, sample_rate));
-            }
-        }
     }
 }
 

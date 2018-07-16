@@ -34,6 +34,20 @@ fn impl_audio_scheduled_source_node(ast: &syn::DeriveInput) -> quote::Tokens {
                     (true, false)
                 }
             }
+
+            pub fn handle_source_node_message(&mut self, message: AudioScheduledSourceNodeMessage, sample_rate: f32) {
+                match message {
+                    AudioScheduledSourceNodeMessage::Start(when) => {
+                        self.start(Tick::from_time(when, sample_rate));
+                    }
+                    AudioScheduledSourceNodeMessage::Stop(when) => {
+                        self.stop(Tick::from_time(when, sample_rate));
+                    }
+                    AudioScheduledSourceNodeMessage::RegisterOnEndedCallback(callback) => {
+                        self.onended_callback = Some(callback);
+                    }
+                }
+            }
         }
 
         impl AudioScheduledSourceNode for #name {

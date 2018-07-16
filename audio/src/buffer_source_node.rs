@@ -1,6 +1,6 @@
-use node::{AudioNodeType, ChannelInfo};
 use block::{Block, Chunk, Tick, FRAMES_PER_BLOCK};
-use node::{AudioNodeEngine, AudioScheduledSourceNodeMessage, BlockInfo};
+use node::{AudioNodeType, ChannelInfo};
+use node::{AudioNodeEngine, AudioScheduledSourceNodeMessage, BlockInfo, OnEndedCallback};
 use param::{Param, ParamType};
 
 /// Control messages directed to AudioBufferSourceNodes.
@@ -69,6 +69,8 @@ pub(crate) struct AudioBufferSourceNode {
     start_at: Option<Tick>,
     /// Time at which the source should stop playing.
     stop_at: Option<Tick>,
+    /// The ended event callback.
+    pub onended_callback: Option<OnEndedCallback>,
 }
 
 impl AudioBufferSourceNode {
@@ -84,6 +86,7 @@ impl AudioBufferSourceNode {
             playback_rate: Param::new(options.playback_rate),
             start_at: None,
             stop_at: None,
+            onended_callback: None,
         }
     }
 
@@ -92,17 +95,6 @@ impl AudioBufferSourceNode {
             AudioBufferSourceNodeMessage::SetBuffer(buffer) => {
                 self.buffer = buffer;
             },
-        }
-    }
-
-    pub fn handle_source_node_message(&mut self, message: AudioScheduledSourceNodeMessage, sample_rate: f32) {
-        match message {
-            AudioScheduledSourceNodeMessage::Start(when) => {
-                self.start(Tick::from_time(when, sample_rate));
-            }
-            AudioScheduledSourceNodeMessage::Stop(when) => {
-                self.stop(Tick::from_time(when, sample_rate));
-            }
         }
     }
 }

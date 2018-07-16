@@ -1,10 +1,12 @@
-use std::sync::mpsc::Sender;
-use param::{Param, ParamRate, ParamType, UserAutomationEvent};
 use channel_node::ChannelNodeOptions;
 use block::{Chunk, Tick};
 use buffer_source_node::{AudioBufferSourceNodeMessage, AudioBufferSourceNodeOptions};
 use gain_node::GainNodeOptions;
 use oscillator_node::OscillatorNodeOptions;
+use param::{Param, ParamRate, ParamType, UserAutomationEvent};
+use std::boxed::FnBox;
+use std::sync::mpsc::Sender;
+use std::sync::Mutex;
 
 /// Information required to construct an audio node
 #[derive(Debug, Clone)]
@@ -175,7 +177,6 @@ pub(crate) trait AudioNodeEngine: Send + AudioNodeCommon {
     }
 }
 
-#[derive(Clone, Debug)]
 pub enum AudioNodeMessage {
     AudioBufferSourceNode(AudioBufferSourceNodeMessage),
     AudioScheduledSourceNode(AudioScheduledSourceNodeMessage),
@@ -199,11 +200,14 @@ pub trait AudioScheduledSourceNode {
     fn stop(&mut self, tick: Tick) -> bool;
 }
 
+pub type OnEndedCallback = Mutex<Box<FnBox() + Send + 'static>>;
+
 /// Type of message directed to AudioScheduledSourceNodes.
-#[derive(Debug, Clone)]
 pub enum AudioScheduledSourceNodeMessage {
     /// Schedules a sound to playback at an exact time.
     Start(f64),
     /// Schedules a sound to stop playback at an exact time.
     Stop(f64),
+    /// Register onended event callback.
+    RegisterOnEndedCallback(OnEndedCallback),
 }
