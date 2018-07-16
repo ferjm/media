@@ -1,6 +1,6 @@
-use channel_node::ChannelNodeOptions;
 use block::{Chunk, Tick};
 use buffer_source_node::{AudioBufferSourceNodeMessage, AudioBufferSourceNodeOptions};
+use channel_node::ChannelNodeOptions;
 use gain_node::GainNodeOptions;
 use oscillator_node::OscillatorNodeOptions;
 use param::{Param, ParamRate, ParamType, UserAutomationEvent};
@@ -56,19 +56,17 @@ pub enum AudioNodeType {
     WaveShaperNode,
 }
 
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ChannelCountMode {
     Max,
     ClampedMax,
-    Explicit
+    Explicit,
 }
-
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ChannelInterpretation {
     Discrete,
-    Speakers
+    Speakers,
 }
 
 #[derive(Copy, Clone)]
@@ -86,7 +84,6 @@ impl BlockInfo {
     }
 }
 
-
 pub struct ChannelInfo {
     pub count: u8,
     pub mode: ChannelCountMode,
@@ -102,7 +99,6 @@ impl Default for ChannelInfo {
         }
     }
 }
-
 
 pub(crate) trait AudioNodeCommon {
     fn channel_info(&self) -> &ChannelInfo;
@@ -127,9 +123,7 @@ pub(crate) trait AudioNodeEngine: Send + AudioNodeCommon {
             AudioNodeMessage::SetParam(id, event) => {
                 self.get_param(id).insert_event(event.to_event(sample_rate))
             }
-            AudioNodeMessage::SetParamRate(id, rate) => {
-                self.get_param(id).set_rate(rate)
-            }
+            AudioNodeMessage::SetParamRate(id, rate) => self.get_param(id).set_rate(rate),
             _ => self.message_specific(msg, sample_rate),
         }
     }

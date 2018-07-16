@@ -1,11 +1,13 @@
 extern crate servo_media;
 
-use servo_media::audio::gain_node::{GainNodeOptions};
-use servo_media::audio::node::{AudioNodeMessage, AudioNodeInit, AudioScheduledSourceNodeMessage, OnEndedCallback};
+use servo_media::audio::gain_node::GainNodeOptions;
+use servo_media::audio::node::{
+    AudioNodeInit, AudioNodeMessage, AudioScheduledSourceNodeMessage, OnEndedCallback,
+};
 use servo_media::audio::param::{ParamType, UserAutomationEvent};
 use servo_media::ServoMedia;
-use std::{thread, time};
 use std::sync::Arc;
+use std::{thread, time};
 
 fn run_example(servo_media: Arc<ServoMedia>) {
     let context = servo_media.create_audio_context(Default::default());
@@ -29,7 +31,9 @@ fn run_example(servo_media: Arc<ServoMedia>) {
     });
     context.message_node(
         osc,
-        AudioNodeMessage::AudioScheduledSourceNode(AudioScheduledSourceNodeMessage::RegisterOnEndedCallback(callback)),
+        AudioNodeMessage::AudioScheduledSourceNode(
+            AudioScheduledSourceNodeMessage::RegisterOnEndedCallback(callback),
+        ),
     );
     assert_eq!(context.current_time(), 0.);
     let _ = context.resume();

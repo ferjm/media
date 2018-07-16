@@ -1,13 +1,13 @@
-use AudioBackend;
-use std::marker::PhantomData;
 use decoder::{AudioDecoder, AudioDecoderCallbacks, AudioDecoderOptions};
 use graph::{AudioGraph, InputPort, NodeId, OutputPort, PortId};
-use node::{AudioNodeMessage, AudioNodeInit};
+use node::{AudioNodeInit, AudioNodeMessage};
 use render_thread::AudioRenderThread;
 use render_thread::AudioRenderThreadMsg;
 use std::cell::Cell;
+use std::marker::PhantomData;
 use std::sync::mpsc::{self, Sender};
 use std::thread::Builder;
+use AudioBackend;
 
 /// Describes the state of the audio context on the control thread.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -130,7 +130,7 @@ impl<B: AudioBackend> AudioContext<B> {
                 AudioRenderThread::<B>::start(receiver, sender_, options.sample_rate, graph)
                     .expect("Could not start AudioRenderThread");
             })
-        .unwrap();
+            .unwrap();
         Self {
             sender,
             state: Cell::new(ProcessingState::Suspended),
@@ -150,14 +150,14 @@ impl<B: AudioBackend> AudioContext<B> {
 
     pub fn current_time(&self) -> f64 {
         let (tx, rx) = mpsc::channel();
-        let _ = self.sender
-            .send(AudioRenderThreadMsg::GetCurrentTime(tx));
+        let _ = self.sender.send(AudioRenderThreadMsg::GetCurrentTime(tx));
         rx.recv().unwrap()
     }
 
     pub fn create_node(&self, node_type: AudioNodeInit) -> NodeId {
         let (tx, rx) = mpsc::channel();
-        let _ = self.sender
+        let _ = self
+            .sender
             .send(AudioRenderThreadMsg::CreateNode(node_type, tx));
         rx.recv().unwrap()
     }
@@ -176,12 +176,14 @@ impl<B: AudioBackend> AudioContext<B> {
     }
 
     pub fn connect_ports(&self, from: PortId<OutputPort>, to: PortId<InputPort>) {
-        let _ = self.sender
+        let _ = self
+            .sender
             .send(AudioRenderThreadMsg::ConnectPorts(from, to));
     }
 
     pub fn disconnect_all_from(&self, node: NodeId) {
-        let _ = self.sender
+        let _ = self
+            .sender
             .send(AudioRenderThreadMsg::DisconnectAllFrom(node));
     }
 
@@ -189,7 +191,8 @@ impl<B: AudioBackend> AudioContext<B> {
     // ///
     // /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect-output
     pub fn disconnect_output(&self, out: PortId<OutputPort>) {
-        let _ = self.sender
+        let _ = self
+            .sender
             .send(AudioRenderThreadMsg::DisconnectOutput(out));
     }
 
@@ -197,7 +200,8 @@ impl<B: AudioBackend> AudioContext<B> {
     ///
     /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect-destinationnode
     pub fn disconnect_between(&self, from: NodeId, to: NodeId) {
-        let _ = self.sender
+        let _ = self
+            .sender
             .send(AudioRenderThreadMsg::DisconnectBetween(from, to));
     }
 
@@ -205,7 +209,8 @@ impl<B: AudioBackend> AudioContext<B> {
     ///
     /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect-destinationnode-output
     pub fn disconnect_output_between(&self, out: PortId<OutputPort>, to: NodeId) {
-        let _ = self.sender
+        let _ = self
+            .sender
             .send(AudioRenderThreadMsg::DisconnectOutputBetween(out, to));
     }
 
@@ -213,7 +218,8 @@ impl<B: AudioBackend> AudioContext<B> {
     // ///
     // /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect-destinationnode-output-input
     pub fn disconnect_output_between_to(&self, out: PortId<OutputPort>, inp: PortId<InputPort>) {
-        let _ = self.sender
+        let _ = self
+            .sender
             .send(AudioRenderThreadMsg::DisconnectOutputBetweenTo(out, inp));
     }
 
@@ -229,7 +235,7 @@ impl<B: AudioBackend> AudioContext<B> {
 
                 audio_decoder.decode(data, callbacks, Some(options));
             })
-        .unwrap();
+            .unwrap();
     }
 }
 

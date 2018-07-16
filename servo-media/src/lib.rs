@@ -4,8 +4,8 @@ extern crate servo_media_gstreamer;
 use std::sync::{self, Once};
 use std::sync::{Arc, Mutex};
 
-use audio::AudioBackend;
 use audio::context::{AudioContext, AudioContextOptions};
+use audio::AudioBackend;
 
 pub struct ServoMedia;
 

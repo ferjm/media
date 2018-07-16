@@ -1,7 +1,7 @@
 extern crate servo_media;
 
 use servo_media::audio::gain_node::GainNodeOptions;
-use servo_media::audio::node::{AudioNodeMessage, AudioNodeInit, AudioScheduledSourceNodeMessage};
+use servo_media::audio::node::{AudioNodeInit, AudioNodeMessage, AudioScheduledSourceNodeMessage};
 use servo_media::audio::param::{ParamType, RampKind, UserAutomationEvent};
 use servo_media::ServoMedia;
 use std::sync::Arc;

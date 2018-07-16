@@ -1,8 +1,8 @@
 use block::FRAMES_PER_BLOCK_USIZE;
-use node::AudioNodeType;
-use node::{AudioNodeEngine, ChannelCountMode, ChannelInfo, ChannelInterpretation};
 use block::{Block, Chunk};
+use node::AudioNodeType;
 use node::BlockInfo;
+use node::{AudioNodeEngine, ChannelCountMode, ChannelInfo, ChannelInterpretation};
 
 #[derive(Copy, Clone, Debug)]
 pub struct ChannelNodeOptions {
@@ -12,7 +12,7 @@ pub struct ChannelNodeOptions {
 #[derive(AudioNodeCommon)]
 pub(crate) struct ChannelMergerNode {
     channel_info: ChannelInfo,
-    channels: u8
+    channels: u8,
 }
 
 impl ChannelMergerNode {
@@ -23,13 +23,15 @@ impl ChannelMergerNode {
                 mode: ChannelCountMode::Explicit,
                 ..Default::default()
             },
-            channels: params.channels
+            channels: params.channels,
         }
     }
 }
 
 impl AudioNodeEngine for ChannelMergerNode {
-    fn node_type(&self) -> AudioNodeType { AudioNodeType::ChannelMergerNode }
+    fn node_type(&self) -> AudioNodeType {
+        AudioNodeType::ChannelMergerNode
+    }
 
     fn process(&mut self, mut inputs: Chunk, _: &BlockInfo) -> Chunk {
         debug_assert!(inputs.len() == self.channels as usize);
@@ -38,7 +40,11 @@ impl AudioNodeEngine for ChannelMergerNode {
         block.repeat(self.channels);
         block.explicit_repeat();
 
-        for (i, channel) in block.data_mut().chunks_mut(FRAMES_PER_BLOCK_USIZE).enumerate() {
+        for (i, channel) in block
+            .data_mut()
+            .chunks_mut(FRAMES_PER_BLOCK_USIZE)
+            .enumerate()
+        {
             channel.copy_from_slice(inputs.blocks[i].data_mut())
         }
 
@@ -46,7 +52,6 @@ impl AudioNodeEngine for ChannelMergerNode {
         inputs.blocks.push(block);
         inputs
     }
-
 
     fn input_count(&self) -> u32 {
         self.channels as u32
@@ -79,7 +84,9 @@ impl ChannelSplitterNode {
 }
 
 impl AudioNodeEngine for ChannelSplitterNode {
-    fn node_type(&self) -> AudioNodeType { AudioNodeType::ChannelSplitterNode }
+    fn node_type(&self) -> AudioNodeType {
+        AudioNodeType::ChannelSplitterNode
+    }
 
     fn process(&mut self, mut inputs: Chunk, _: &BlockInfo) -> Chunk {
         debug_assert!(inputs.len() == 1);

@@ -1,6 +1,6 @@
 use block::{Block, Chunk, Tick, FRAMES_PER_BLOCK};
-use node::{AudioNodeType, ChannelInfo};
 use node::{AudioNodeEngine, AudioScheduledSourceNodeMessage, BlockInfo, OnEndedCallback};
+use node::{AudioNodeType, ChannelInfo};
 use param::{Param, ParamType};
 
 /// Control messages directed to AudioBufferSourceNodes.
@@ -94,13 +94,15 @@ impl AudioBufferSourceNode {
         match message {
             AudioBufferSourceNodeMessage::SetBuffer(buffer) => {
                 self.buffer = buffer;
-            },
+            }
         }
     }
 }
 
 impl AudioNodeEngine for AudioBufferSourceNode {
-    fn node_type(&self) -> AudioNodeType { AudioNodeType::AudioBufferSourceNode }
+    fn node_type(&self) -> AudioNodeType {
+        AudioNodeType::AudioBufferSourceNode
+    }
 
     fn input_count(&self) -> u32 {
         0
@@ -152,7 +154,9 @@ impl AudioNodeEngine for AudioBufferSourceNode {
             block.explicit_repeat();
             for chan in 0..buffer.chans() {
                 let data = block.data_chan_mut(chan);
-                data.copy_from_slice(&buffer.buffers[chan as usize][self.playback_offset..next_offset]);
+                data.copy_from_slice(
+                    &buffer.buffers[chan as usize][self.playback_offset..next_offset],
+                );
             }
             inputs.blocks.push(block)
         }
@@ -165,18 +169,20 @@ impl AudioNodeEngine for AudioBufferSourceNode {
         match id {
             ParamType::PlaybackRate => &mut self.playback_rate,
             ParamType::Detune => &mut self.detune,
-            _ => panic!("Unknown param {:?} for AudioBufferSourceNode", id)
+            _ => panic!("Unknown param {:?} for AudioBufferSourceNode", id),
         }
     }
 
-    make_message_handler!(AudioBufferSourceNode: handle_message,
-                          AudioScheduledSourceNode: handle_source_node_message);
+    make_message_handler!(
+        AudioBufferSourceNode: handle_message,
+        AudioScheduledSourceNode: handle_source_node_message
+    );
 }
 
 #[derive(Debug, Clone)]
 pub struct AudioBuffer {
     /// Invariant: all buffers must be of the same length
-    pub buffers: Vec<Vec<f32>>
+    pub buffers: Vec<Vec<f32>>,
 }
 
 impl AudioBuffer {
@@ -193,9 +199,7 @@ impl AudioBuffer {
             assert!(buf.len() == buffers[0].len())
         }
 
-        Self {
-            buffers
-        }
+        Self { buffers }
     }
 
     pub fn len(&self) -> usize {
@@ -209,9 +213,7 @@ impl AudioBuffer {
 
 impl From<Vec<f32>> for AudioBuffer {
     fn from(vec: Vec<f32>) -> Self {
-        Self {
-            buffers: vec![vec]
-        }
+        Self { buffers: vec![vec] }
     }
 }
 

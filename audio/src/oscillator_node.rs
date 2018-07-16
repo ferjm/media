@@ -1,8 +1,8 @@
-use node::{AudioNodeType, ChannelInfo};
 use block::{Chunk, Tick};
 use node::{AudioNodeEngine, AudioScheduledSourceNodeMessage, BlockInfo, OnEndedCallback};
-use param::{Param, ParamType};
+use node::{AudioNodeType, ChannelInfo};
 use num_traits::cast::NumCast;
+use param::{Param, ParamType};
 
 #[derive(Copy, Clone, Debug)]
 pub struct PeriodicWaveOptions {
@@ -51,7 +51,6 @@ pub(crate) struct OscillatorNode {
     onended_callback: Option<OnEndedCallback>,
 }
 
-
 impl OscillatorNode {
     pub fn new(options: OscillatorNodeOptions) -> Self {
         Self {
@@ -71,8 +70,9 @@ impl OscillatorNode {
 }
 
 impl AudioNodeEngine for OscillatorNode {
-
-    fn node_type(&self) -> AudioNodeType { AudioNodeType::OscillatorNode }
+    fn node_type(&self) -> AudioNodeType {
+        AudioNodeType::OscillatorNode
+    }
 
     fn process(&mut self, mut inputs: Chunk, info: &BlockInfo) -> Chunk {
         // XXX Implement this properly and according to self.options
@@ -90,7 +90,6 @@ impl AudioNodeEngine for OscillatorNode {
         }
 
         {
-
             inputs.blocks[0].explicit_silence();
             let mut iter = inputs.blocks[0].iter();
 
@@ -139,7 +138,7 @@ impl AudioNodeEngine for OscillatorNode {
         match id {
             ParamType::Frequency => &mut self.frequency,
             ParamType::Detune => &mut self.detune,
-            _ => panic!("Unknown param {:?} for OscillatorNode", id)
+            _ => panic!("Unknown param {:?} for OscillatorNode", id),
         }
     }
 

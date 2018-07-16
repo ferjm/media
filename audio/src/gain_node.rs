@@ -1,8 +1,8 @@
-use node::{AudioNodeType, ChannelInfo};
 use block::Chunk;
 use block::Tick;
 use node::AudioNodeEngine;
 use node::BlockInfo;
+use node::{AudioNodeType, ChannelInfo};
 use param::{Param, ParamType};
 
 #[derive(Copy, Clone, Debug)]
@@ -36,14 +36,15 @@ impl GainNode {
 }
 
 impl AudioNodeEngine for GainNode {
-
-    fn node_type(&self) -> AudioNodeType { AudioNodeType::GainNode }
+    fn node_type(&self) -> AudioNodeType {
+        AudioNodeType::GainNode
+    }
 
     fn process(&mut self, mut inputs: Chunk, info: &BlockInfo) -> Chunk {
         debug_assert!(inputs.len() == 1);
 
         if inputs.blocks[0].is_silence() {
-            return inputs
+            return inputs;
         }
 
         {
@@ -60,11 +61,10 @@ impl AudioNodeEngine for GainNode {
         inputs
     }
 
-
     fn get_param(&mut self, id: ParamType) -> &mut Param {
         match id {
             ParamType::Gain => &mut self.gain,
-            _ => panic!("Unknown param {:?} for GainNode", id)
+            _ => panic!("Unknown param {:?} for GainNode", id),
         }
     }
 }

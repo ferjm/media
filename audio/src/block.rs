@@ -1,10 +1,10 @@
-use std::f32::consts::SQRT_2;
-use node::ChannelInterpretation;
-use graph::PortIndex;
 use byte_slice_cast::*;
+use graph::PortIndex;
+use node::ChannelInterpretation;
 use smallvec::SmallVec;
-use std::ops::*;
+use std::f32::consts::SQRT_2;
 use std::mem;
+use std::ops::*;
 
 // defined by spec
 // https://webaudio.github.io/web-audio-api/#render-quantum
@@ -48,7 +48,7 @@ impl Chunk {
 pub struct Block {
     /// The number of channels in this block
     channels: u8,
-    /// This is an optimization which means that the buffer is representing multiple channels with the 
+    /// This is an optimization which means that the buffer is representing multiple channels with the
     /// same content at once. Happens when audio is upmixed or when a source like
     /// an oscillator node has multiple channel outputs
     repeat: bool,
@@ -59,7 +59,6 @@ pub struct Block {
     /// in which case it will be of length FRAMES_PER_BLOCK
     buffer: Vec<f32>,
 }
-
 
 impl Default for Block {
     fn default() -> Self {
@@ -72,7 +71,6 @@ impl Default for Block {
 }
 
 impl Block {
-
     /// Empty block with no channels, for pushing
     /// new channels to.
     ///
@@ -133,7 +131,8 @@ impl Block {
             self.buffer = new;
             self.repeat = false;
         } else if self.is_silence() {
-            self.buffer.resize(FRAMES_PER_BLOCK_USIZE * self.channels as usize, 0.);
+            self.buffer
+                .resize(FRAMES_PER_BLOCK_USIZE * self.channels as usize, 0.);
         }
     }
 
@@ -175,8 +174,8 @@ impl Block {
         if self.is_silence() {
             0.
         } else {
-           self.data_chan(chan)[frame]
-       }
+            self.data_chan(chan)[frame]
+        }
     }
 
     pub fn push_chan(&mut self, data: &[f32]) {
@@ -194,13 +193,13 @@ impl Block {
         // If we're not changing the number of channels, we
         // don't actually need to mix
         if self.channels == channels {
-            return
+            return;
         }
 
         // Silent buffers stay silent
         if self.is_silence() {
             self.channels = channels;
-            return
+            return;
         }
 
         if interpretation == ChannelInterpretation::Discrete {
@@ -269,11 +268,11 @@ impl Block {
 
                     let mut v = Vec::with_capacity(6 * FRAMES_PER_BLOCK_USIZE);
                     // output.{L, R} = input.{L, R}
-                    v.extend(&self.buffer[0 .. 2 * FRAMES_PER_BLOCK_USIZE]);
+                    v.extend(&self.buffer[0..2 * FRAMES_PER_BLOCK_USIZE]);
                     // output.{C, LFE} = 0
                     v.resize(4 * FRAMES_PER_BLOCK_USIZE, 0.);
                     // output.{SL, R} = input.{SL, SR}
-                    v.extend(&self.buffer[2 * FRAMES_PER_BLOCK_USIZE ..]);
+                    v.extend(&self.buffer[2 * FRAMES_PER_BLOCK_USIZE..]);
                     self.buffer = v;
                     self.channels = channels;
                 }
@@ -286,7 +285,8 @@ impl Block {
                     let mut v = Vec::with_capacity(FRAMES_PER_BLOCK_USIZE);
                     for frame in 0..FRAMES_PER_BLOCK_USIZE {
                         // output = 0.5 * (input.L + input.R);
-                        let o = 0.5 * (self.data_chan_frame(frame, 0) + self.data_chan_frame(frame, 1));
+                        let o =
+                            0.5 * (self.data_chan_frame(frame, 0) + self.data_chan_frame(frame, 1));
                         v.push(o);
                     }
                     self.buffer = v;
@@ -297,10 +297,10 @@ impl Block {
                     let mut v = Vec::with_capacity(FRAMES_PER_BLOCK_USIZE);
                     for frame in 0..FRAMES_PER_BLOCK_USIZE {
                         // output = 0.5 * (input.L + input.R + input.SL + input.SR);
-                        let o = 0.25 * (self.data_chan_frame(frame, 0) +
-                                        self.data_chan_frame(frame, 1) +
-                                        self.data_chan_frame(frame, 2) +
-                                        self.data_chan_frame(frame, 3));
+                        let o = 0.25 * (self.data_chan_frame(frame, 0)
+                            + self.data_chan_frame(frame, 1)
+                            + self.data_chan_frame(frame, 2)
+                            + self.data_chan_frame(frame, 3));
                         v.push(o);
                     }
                     self.buffer = v;
@@ -350,13 +350,13 @@ impl Block {
                     v.resize(2 * FRAMES_PER_BLOCK_USIZE, 0.);
                     for frame in 0..FRAMES_PER_BLOCK_USIZE {
                         // output.L = L + sqrt(0.5) * (input.C + input.SL)
-                        v[frame] =
-                            self.data_chan_frame(frame, 0) +
-                            SQRT_2 * (self.data_chan_frame(frame, 2) + self.data_chan_frame(frame, 4));
+                        v[frame] = self.data_chan_frame(frame, 0)
+                            + SQRT_2
+                                * (self.data_chan_frame(frame, 2) + self.data_chan_frame(frame, 4));
                         // output.R = R + sqrt(0.5) * (input.C + input.SR)
-                        v[frame + FRAMES_PER_BLOCK_USIZE] =
-                            self.data_chan_frame(frame, 1) +
-                            SQRT_2 * (self.data_chan_frame(frame, 2) + self.data_chan_frame(frame, 5));
+                        v[frame + FRAMES_PER_BLOCK_USIZE] = self.data_chan_frame(frame, 1)
+                            + SQRT_2
+                                * (self.data_chan_frame(frame, 2) + self.data_chan_frame(frame, 5));
                     }
                     self.buffer = v;
                     self.channels = 2;
@@ -369,19 +369,15 @@ impl Block {
                     v.resize(6 * FRAMES_PER_BLOCK_USIZE, 0.);
                     for frame in 0..FRAMES_PER_BLOCK_USIZE {
                         // output.L = L + sqrt(0.5) * input.C
-                        v[frame] =
-                            self.data_chan_frame(frame, 0) +
-                            SQRT_2 * self.data_chan_frame(frame, 2);
+                        v[frame] = self.data_chan_frame(frame, 0)
+                            + SQRT_2 * self.data_chan_frame(frame, 2);
                         // output.R = R + sqrt(0.5) * input.C
-                        v[frame + FRAMES_PER_BLOCK_USIZE] =
-                            self.data_chan_frame(frame, 1) +
-                            SQRT_2 * self.data_chan_frame(frame, 2);
+                        v[frame + FRAMES_PER_BLOCK_USIZE] = self.data_chan_frame(frame, 1)
+                            + SQRT_2 * self.data_chan_frame(frame, 2);
                         // output.SL = input.SL
-                        v[frame + 2 * FRAMES_PER_BLOCK_USIZE] =
-                            self.data_chan_frame(frame, 4);
+                        v[frame + 2 * FRAMES_PER_BLOCK_USIZE] = self.data_chan_frame(frame, 4);
                         // output.SR = input.SR
-                     v[frame + 3 * FRAMES_PER_BLOCK_USIZE] =
-                            self.data_chan_frame(frame, 5);
+                        v[frame + 3 * FRAMES_PER_BLOCK_USIZE] = self.data_chan_frame(frame, 5);
                     }
                     self.buffer = v;
                     self.channels = 4;
@@ -401,7 +397,8 @@ impl Block {
     /// Resize to add or remove channels, fill extra channels with silence
     fn resize_silence(&mut self, channels: u8) {
         self.explicit_repeat();
-        self.buffer.resize(FRAMES_PER_BLOCK_USIZE * channels as usize, 0.);
+        self.buffer
+            .resize(FRAMES_PER_BLOCK_USIZE * channels as usize, 0.);
         self.channels = channels;
     }
 
@@ -433,7 +430,7 @@ impl Block {
 /// An iterator over frames in a block
 pub struct FrameIterator<'a> {
     frame: Tick,
-    block: &'a mut Block
+    block: &'a mut Block,
 }
 
 impl<'a> FrameIterator<'a> {
@@ -441,7 +438,7 @@ impl<'a> FrameIterator<'a> {
     pub fn new(block: &'a mut Block) -> Self {
         FrameIterator {
             frame: Tick(0),
-            block
+            block,
         }
     }
 
@@ -455,18 +452,20 @@ impl<'a> FrameIterator<'a> {
         let curr = self.frame;
         if curr < FRAMES_PER_BLOCK {
             self.frame.advance();
-            Some(FrameRef { frame: curr, block: &mut self.block })
+            Some(FrameRef {
+                frame: curr,
+                block: &mut self.block,
+            })
         } else {
             None
         }
     }
 }
 
-
 /// A reference to a frame
 pub struct FrameRef<'a> {
     frame: Tick,
-    block: &'a mut Block
+    block: &'a mut Block,
 }
 
 impl<'a> FrameRef<'a> {
@@ -482,19 +481,25 @@ impl<'a> FrameRef<'a> {
     ///
     /// Block must not be silence
     #[inline]
-    pub fn mutate_with<F>(&mut self, f: F) where F: Fn(&mut f32) {
-        debug_assert!(!self.block.is_silence(), "mutate_frame_with should not be called with a silenced block, \
-                                                 call .explicit_silence() if you wish to use this");
+    pub fn mutate_with<F>(&mut self, f: F)
+    where
+        F: Fn(&mut f32),
+    {
+        debug_assert!(
+            !self.block.is_silence(),
+            "mutate_frame_with should not be called with a silenced block, \
+             call .explicit_silence() if you wish to use this"
+        );
         if self.block.repeat {
             f(&mut self.block.buffer[self.frame.0 as usize])
         } else {
             for chan in 0..self.block.channels {
-                f(&mut self.block.buffer[chan as usize * FRAMES_PER_BLOCK_USIZE + self.frame.0 as usize])
+                f(&mut self.block.buffer
+                    [chan as usize * FRAMES_PER_BLOCK_USIZE + self.frame.0 as usize])
             }
         }
     }
 }
-
 
 // operator impls
 

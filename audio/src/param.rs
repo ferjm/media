@@ -6,10 +6,10 @@ pub enum ParamType {
     Frequency,
     Detune,
     Gain,
-    PlaybackRate
+    PlaybackRate,
 }
 
-/// An AudioParam. 
+/// An AudioParam.
 ///
 /// https://webaudio.github.io/web-audio-api/#AudioParam
 #[derive(Debug)]
@@ -30,9 +30,8 @@ pub enum ParamRate {
     ARate,
 }
 
-
 impl Param {
-    pub fn new(val: f32) -> Self{
+    pub fn new(val: f32) -> Self {
         Param {
             val,
             kind: ParamRate::ARate,
@@ -51,7 +50,7 @@ impl Param {
             return false;
         }
 
-        if self.events.len() <= self.current_event  {
+        if self.events.len() <= self.current_event {
             return false;
         }
 
@@ -106,10 +105,12 @@ impl Param {
             break;
         }
 
-
-        current_event.run(&mut self.val, current_tick,
-                          self.event_start_time,
-                          self.event_start_value)
+        current_event.run(
+            &mut self.val,
+            current_tick,
+            self.event_start_time,
+            self.event_start_value,
+        )
     }
 
     pub fn value(&self) -> f32 {
@@ -159,13 +160,13 @@ impl Param {
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum RampKind {
-    Linear, Exponential
+    Linear,
+    Exponential,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 /// https://webaudio.github.io/web-audio-api/#dfn-automation-event
 pub(crate) enum AutomationEvent {
-
     SetValue(f32),
     SetValueAtTime(f32, Tick),
     RampToValueAtTime(RampKind, f32, Tick),
@@ -174,11 +175,9 @@ pub(crate) enum AutomationEvent {
     CancelScheduledValues(Tick),
 }
 
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 /// An AutomationEvent that uses times in s instead of Ticks
 pub enum UserAutomationEvent {
-
     SetValue(f32),
     SetValueAtTime(f32, /* time */ f64),
     RampToValueAtTime(RampKind, f32, /* time */ f64),
@@ -192,17 +191,25 @@ impl UserAutomationEvent {
     pub(crate) fn to_event(self, rate: f32) -> AutomationEvent {
         match self {
             UserAutomationEvent::SetValue(val) => AutomationEvent::SetValue(val),
-            UserAutomationEvent::SetValueAtTime(val, time) =>
-                AutomationEvent::SetValueAtTime(val, Tick::from_time(time, rate)),
-            UserAutomationEvent::RampToValueAtTime(kind, val, time) =>
-                AutomationEvent::RampToValueAtTime(kind, val, Tick::from_time(time, rate)),
-            UserAutomationEvent::SetTargetAtTime(val, start, tau) =>
-                AutomationEvent::SetTargetAtTime(val, Tick::from_time(start, rate),
-                                                 tau * rate as f64),
-            UserAutomationEvent::CancelScheduledValues(t) =>
-                AutomationEvent::CancelScheduledValues(Tick::from_time(t, rate)),
-            UserAutomationEvent::CancelAndHoldAtTime(t) =>
+            UserAutomationEvent::SetValueAtTime(val, time) => {
+                AutomationEvent::SetValueAtTime(val, Tick::from_time(time, rate))
+            }
+            UserAutomationEvent::RampToValueAtTime(kind, val, time) => {
+                AutomationEvent::RampToValueAtTime(kind, val, Tick::from_time(time, rate))
+            }
+            UserAutomationEvent::SetTargetAtTime(val, start, tau) => {
+                AutomationEvent::SetTargetAtTime(
+                    val,
+                    Tick::from_time(start, rate),
+                    tau * rate as f64,
+                )
+            }
+            UserAutomationEvent::CancelScheduledValues(t) => {
+                AutomationEvent::CancelScheduledValues(Tick::from_time(t, rate))
+            }
+            UserAutomationEvent::CancelAndHoldAtTime(t) => {
                 AutomationEvent::CancelAndHoldAtTime(Tick::from_time(t, rate))
+            }
         }
     }
 }
@@ -215,8 +222,9 @@ impl AutomationEvent {
             AutomationEvent::RampToValueAtTime(_, _, tick) => tick,
             AutomationEvent::SetTargetAtTime(_, start, _) => start,
             AutomationEvent::CancelAndHoldAtTime(t) => t,
-            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) =>
-                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline"),
+            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) => {
+                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline")
+            }
         }
     }
 
@@ -226,8 +234,9 @@ impl AutomationEvent {
             AutomationEvent::RampToValueAtTime(_, _, tick) => Some(tick),
             AutomationEvent::SetTargetAtTime(..) => None,
             AutomationEvent::CancelAndHoldAtTime(t) => Some(t),
-            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) =>
-                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline"),
+            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) => {
+                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline")
+            }
         }
     }
 
@@ -237,8 +246,9 @@ impl AutomationEvent {
             AutomationEvent::RampToValueAtTime(..) => None,
             AutomationEvent::SetTargetAtTime(_, start, _) => Some(start),
             AutomationEvent::CancelAndHoldAtTime(t) => Some(t),
-            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) =>
-                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline"),
+            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) => {
+                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline")
+            }
         }
     }
 
@@ -248,17 +258,20 @@ impl AutomationEvent {
         match *self {
             AutomationEvent::CancelAndHoldAtTime(..) => Some(true),
             AutomationEvent::CancelScheduledValues(..) => Some(false),
-            _ => None
+            _ => None,
         }
     }
 
     /// Update a parameter based on this event
     ///
     /// Returns true if something changed
-    pub fn run(&self, value: &mut f32,
-               current_tick: Tick,
-               event_start_time: Tick,
-               event_start_value: f32) -> bool {
+    pub fn run(
+        &self,
+        value: &mut f32,
+        current_tick: Tick,
+        event_start_time: Tick,
+        event_start_value: f32,
+    ) -> bool {
         if let Some(start_time) = self.start_time() {
             if start_time > current_tick {
                 // The previous event finished and we advanced to this
@@ -277,8 +290,8 @@ impl AutomationEvent {
                 }
             }
             AutomationEvent::RampToValueAtTime(kind, val, time) => {
-                let progress = (current_tick - event_start_time).0 as f32 /
-                               (time - event_start_time).0 as f32;
+                let progress =
+                    (current_tick - event_start_time).0 as f32 / (time - event_start_time).0 as f32;
                 match kind {
                     RampKind::Linear => {
                         *value = event_start_value + (val - event_start_value) * progress;
@@ -290,15 +303,14 @@ impl AutomationEvent {
                 true
             }
             AutomationEvent::SetTargetAtTime(val, start, tau) => {
-                let exp = - ((current_tick - start) / tau);
+                let exp = -((current_tick - start) / tau);
                 *value = val + (event_start_value - val) * exp.exp() as f32;
                 true
             }
-            AutomationEvent::CancelAndHoldAtTime(..) => {
-                false
+            AutomationEvent::CancelAndHoldAtTime(..) => false,
+            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) => {
+                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline")
             }
-            AutomationEvent::CancelScheduledValues(..) | AutomationEvent::SetValue(..) =>
-                unreachable!("CancelScheduledValues/SetValue should never appear in the timeline"),
         }
     }
 }

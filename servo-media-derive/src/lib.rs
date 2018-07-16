@@ -1,4 +1,4 @@
-#![recursion_limit="128"]
+#![recursion_limit = "128"]
 
 extern crate proc_macro;
 extern crate syn;
@@ -85,7 +85,6 @@ fn impl_audio_scheduled_source_node(ast: &syn::DeriveInput) -> quote::Tokens {
 
 #[proc_macro_derive(AudioNodeCommon)]
 pub fn channel_info(input: TokenStream) -> TokenStream {
-
     let ast: syn::DeriveInput = syn::parse(input).unwrap();
     let name = &ast.ident;
     let gen = quote! {

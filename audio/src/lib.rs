@@ -24,7 +24,6 @@ pub mod param;
 pub mod render_thread;
 pub mod sink;
 
-
 pub trait AudioBackend {
     type Decoder: decoder::AudioDecoder;
     type Sink: sink::AudioSink;
@@ -37,7 +36,7 @@ pub struct DummyBackend {}
 
 impl AudioBackend for DummyBackend {
     type Decoder = decoder::DummyAudioDecoder;
-    type Sink =  sink::DummyAudioSink;
+    type Sink = sink::DummyAudioSink;
     fn make_decoder() -> Self::Decoder {
         decoder::DummyAudioDecoder
     }

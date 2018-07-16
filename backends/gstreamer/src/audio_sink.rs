@@ -1,11 +1,11 @@
+use byte_slice_cast::*;
+use gst;
+use gst::prelude::*;
 use gst_app::{AppSrc, AppSrcCallbacks};
 use gst_audio;
 use servo_media_audio::block::{Chunk, FRAMES_PER_BLOCK};
 use servo_media_audio::render_thread::AudioRenderThreadMsg;
 use servo_media_audio::sink::AudioSink;
-use byte_slice_cast::*;
-use gst;
-use gst::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -44,9 +44,11 @@ impl GStreamerAudioSink {
 
 impl GStreamerAudioSink {
     fn set_audio_info(&self, sample_rate: f32, channels: u8) -> Result<(), ()> {
-        let audio_info =
-            gst_audio::AudioInfo::new(gst_audio::AUDIO_FORMAT_F32, sample_rate as u32, channels.into())
-            .build()
+        let audio_info = gst_audio::AudioInfo::new(
+            gst_audio::AUDIO_FORMAT_F32,
+            sample_rate as u32,
+            channels.into(),
+        ).build()
             .ok_or(())?;
         self.appsrc.set_caps(&audio_info.to_caps().unwrap());
         *self.audio_info.borrow_mut() = Some(audio_info);
@@ -57,7 +59,7 @@ impl GStreamerAudioSink {
         let curr_channels = if let Some(ch) = self.audio_info.borrow().as_ref() {
             ch.channels()
         } else {
-            return Ok(())
+            return Ok(());
         };
         if channels != curr_channels as u8 {
             self.set_audio_info(self.sample_rate.get(), channels)?;
@@ -71,7 +73,7 @@ impl AudioSink for GStreamerAudioSink {
         &self,
         sample_rate: f32,
         graph_thread_channel: Sender<AudioRenderThreadMsg>,
-        ) -> Result<(), ()> {
+    ) -> Result<(), ()> {
         self.sample_rate.set(sample_rate);
         self.set_audio_info(sample_rate, 2)?;
         self.appsrc.set_property_format(gst::Format::Time);
@@ -90,7 +92,7 @@ impl AudioSink for GStreamerAudioSink {
                 };
                 appsrc.set_callbacks(AppSrcCallbacks::new().need_data(need_data).build());
             })
-        .unwrap();
+            .unwrap();
 
         let appsrc = self.appsrc.as_ref().clone().upcast();
         let resample = gst::ElementFactory::make("audioresample", None).ok_or(())?;
@@ -105,11 +107,19 @@ impl AudioSink for GStreamerAudioSink {
     }
 
     fn play(&self) -> Result<(), ()> {
-        self.pipeline.set_state(gst::State::Playing).into_result().map(|_| ()).map_err(|_| ())
+        self.pipeline
+            .set_state(gst::State::Playing)
+            .into_result()
+            .map(|_| ())
+            .map_err(|_| ())
     }
 
     fn stop(&self) -> Result<(), ()> {
-        self.pipeline.set_state(gst::State::Paused).into_result().map(|_| ()).map_err(|_| ())
+        self.pipeline
+            .set_state(gst::State::Paused)
+            .into_result()
+            .map(|_| ())
+            .map_err(|_| ())
     }
 
     fn has_enough_data(&self) -> bool {

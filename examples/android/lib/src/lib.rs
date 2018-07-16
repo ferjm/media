@@ -2,7 +2,7 @@ extern crate servo_media;
 
 use servo_media::audio::gain_node::GainNodeOptions;
 use servo_media::audio::graph::AudioGraph;
-use servo_media::audio::node::{AudioNodeMessage, AudioNodeInit};
+use servo_media::audio::node::{AudioNodeInit, AudioNodeMessage};
 use servo_media::audio::oscillator_node::OscillatorNodeMessage;
 use servo_media::ServoMedia;
 

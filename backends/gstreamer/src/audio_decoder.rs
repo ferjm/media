@@ -1,10 +1,10 @@
 use super::gst_app::{AppSink, AppSinkCallbacks, AppSrc};
 use super::gst_audio;
-use servo_media_audio::decoder::{AudioDecoder, AudioDecoderCallbacks, AudioDecoderOptions};
 use byte_slice_cast::*;
 use gst;
 use gst::buffer::{MappedBuffer, Readable};
 use gst::prelude::*;
+use servo_media_audio::decoder::{AudioDecoder, AudioDecoderCallbacks, AudioDecoderOptions};
 use std::io::Cursor;
 use std::io::Read;
 use std::sync::Arc;
@@ -108,7 +108,8 @@ impl AudioDecoder for GStreamerAudioDecoder {
                     gst_audio::AUDIO_FORMAT_F32,
                     options.sample_rate as u32,
                     options.channels,
-                ).build().ok_or(())?;
+                ).build()
+                    .ok_or(())?;
                 appsink.set_caps(&audio_info.to_caps().unwrap());
 
                 let pipeline_ = pipeline.clone();

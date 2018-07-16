@@ -1,12 +1,12 @@
-use smallvec::SmallVec;
 use block::{Block, Chunk};
 use destination_node::DestinationNode;
 use node::{AudioNodeEngine, BlockInfo, ChannelCountMode};
-use petgraph::Direction;
 use petgraph::graph::DefaultIx;
 use petgraph::stable_graph::NodeIndex;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::{DfsPostOrder, EdgeRef, Reversed};
+use petgraph::Direction;
+use smallvec::SmallVec;
 use std::cell::{RefCell, RefMut};
 use std::cmp;
 
@@ -72,15 +72,18 @@ pub(crate) struct Node {
 /// however it does not allow for duplicate connections between pairs
 /// of ports
 pub(crate) struct Edge {
-    connections: SmallVec<[Connection; 1]>
+    connections: SmallVec<[Connection; 1]>,
 }
 
 impl Edge {
     /// Find if there are connections between two given ports, return the index
-    fn has_between(&self,
-               output_idx: PortIndex<OutputPort>,
-               input_idx: PortIndex<InputPort>) -> bool {
-        self.connections.iter()
+    fn has_between(
+        &self,
+        output_idx: PortIndex<OutputPort>,
+        input_idx: PortIndex<InputPort>,
+    ) -> bool {
+        self.connections
+            .iter()
             .find(|e| e.input_idx == input_idx && e.output_idx == output_idx)
             .is_some()
     }
@@ -89,9 +92,11 @@ impl Edge {
         self.connections.retain(|i| i.output_idx != output_idx)
     }
 
-    fn remove_by_pair(&mut self,
-                      output_idx: PortIndex<OutputPort>,
-                      input_idx: PortIndex<InputPort>) {
+    fn remove_by_pair(
+        &mut self,
+        output_idx: PortIndex<OutputPort>,
+        input_idx: PortIndex<InputPort>,
+    ) {
         self.connections
             .retain(|i| i.output_idx != output_idx || i.input_idx != input_idx)
     }
@@ -126,19 +131,25 @@ impl AudioGraph {
     ///
     /// The edge goes *from* the output port *to* the input port, connecting two nodes
     pub fn add_edge(&mut self, out: PortId<OutputPort>, inp: PortId<InputPort>) {
-        let edge = self.graph.edges(out.node().0)
-                       .find(|e| e.target() == inp.node().0)
-                       .map(|e| e.id());
+        let edge = self
+            .graph
+            .edges(out.node().0)
+            .find(|e| e.target() == inp.node().0)
+            .map(|e| e.id());
         if let Some(e) = edge {
             // .find(|e| e.weight().has_between(out.1, inp.1));
-            let w = self.graph.edge_weight_mut(e).expect("This edge is known to exist");
+            let w = self
+                .graph
+                .edge_weight_mut(e)
+                .expect("This edge is known to exist");
             if w.has_between(out.1, inp.1) {
                 return;
             }
             w.connections.push(Connection::new(inp.1, out.1))
         } else {
             // add a new edge
-            self.graph.add_edge(out.node().0, inp.node().0, Edge::new(inp.1, out.1));
+            self.graph
+                .add_edge(out.node().0, inp.node().0, Edge::new(inp.1, out.1));
         }
     }
 
@@ -146,10 +157,7 @@ impl AudioGraph {
     ///
     /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect
     pub fn disconnect_all_from(&mut self, node: NodeId) {
-        let edges = self.graph
-                        .edges(node.0)
-                        .map(|e| e.id())
-                        .collect::<Vec<_>>();
+        let edges = self.graph.edges(node.0).map(|e| e.id()).collect::<Vec<_>>();
         for edge in edges {
             self.graph.remove_edge(edge);
         }
@@ -159,10 +167,16 @@ impl AudioGraph {
     // ///
     // /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect-output
     pub fn disconnect_output(&mut self, out: PortId<OutputPort>) {
-        let candidates: Vec<_> = self.graph.edges(out.node().0)
-                                     .map(|e| (e.id(), e.target())).collect();
+        let candidates: Vec<_> = self
+            .graph
+            .edges(out.node().0)
+            .map(|e| (e.id(), e.target()))
+            .collect();
         for (edge, to) in candidates {
-            let mut e = self.graph.remove_edge(edge).expect("Edge index is known to exist");
+            let mut e = self
+                .graph
+                .remove_edge(edge)
+                .expect("Edge index is known to exist");
             e.remove_by_output(out.1);
             if !e.connections.is_empty() {
                 self.graph.add_edge(out.node().0, to, e);
@@ -174,10 +188,11 @@ impl AudioGraph {
     ///
     /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect-destinationnode
     pub fn disconnect_between(&mut self, from: NodeId, to: NodeId) {
-        let edge = self.graph
-                       .edges(from.0)
-                       .find(|e| e.target() == to.0)
-                       .map(|e| e.id());
+        let edge = self
+            .graph
+            .edges(from.0)
+            .find(|e| e.target() == to.0)
+            .map(|e| e.id());
         if let Some(i) = edge {
             self.graph.remove_edge(i);
         }
@@ -193,7 +208,10 @@ impl AudioGraph {
             .find(|e| e.target() == to.0)
             .map(|e| e.id());
         if let Some(edge) = edge {
-            let mut e = self.graph.remove_edge(edge).expect("Edge index is known to exist");
+            let mut e = self
+                .graph
+                .remove_edge(edge)
+                .expect("Edge index is known to exist");
             e.remove_by_output(out.1);
             if !e.connections.is_empty() {
                 self.graph.add_edge(out.node().0, to.0, e);
@@ -204,14 +222,21 @@ impl AudioGraph {
     // /// Disconnect all outgoing connections from a node's output to another node's input
     // ///
     // /// https://webaudio.github.io/web-audio-api/#dom-audionode-disconnect-destinationnode-output-input
-    pub fn disconnect_output_between_to(&mut self, out: PortId<OutputPort>, inp: PortId<InputPort>) {
+    pub fn disconnect_output_between_to(
+        &mut self,
+        out: PortId<OutputPort>,
+        inp: PortId<InputPort>,
+    ) {
         let edge = self
             .graph
             .edges(out.node().0)
             .find(|e| e.target() == inp.node().0)
             .map(|e| e.id());
         if let Some(edge) = edge {
-            let mut e = self.graph.remove_edge(edge).expect("Edge index is known to exist");
+            let mut e = self
+                .graph
+                .remove_edge(edge)
+                .expect("Edge index is known to exist");
             e.remove_by_pair(out.1, inp.1);
             if !e.connections.is_empty() {
                 self.graph.add_edge(out.node().0, inp.node().0, e);
@@ -268,7 +293,6 @@ impl AudioGraph {
                             .expect("Cache should have been filled from traversal");
                         blocks[connection.input_idx.0 as usize].push(block);
                     }
-
                 }
 
                 for (i, mut blocks) in blocks.drain().enumerate() {
@@ -289,7 +313,7 @@ impl AudioGraph {
                                 }
                             }
                             // It's one channel, it maxes itself
-                            ChannelCountMode::Max => ()
+                            ChannelCountMode::Max => (),
                         }
                     } else {
                         let mix_count = match mode {
@@ -313,7 +337,6 @@ impl AudioGraph {
                     }
                 }
             }
-
 
             // actually run the node engine
             let mut out = curr.process(chunk, info);
@@ -355,10 +378,12 @@ impl AudioGraph {
         }
 
         // The destination node stores its output on itself, extract it.
-        self.graph[self.dest_id.0].node.borrow_mut()
-            .destination_data().expect("Destination node should have data cached")
+        self.graph[self.dest_id.0]
+            .node
+            .borrow_mut()
+            .destination_data()
+            .expect("Destination node should have data cached")
     }
-
 
     /// Obtain a mutable reference to a node
     pub(crate) fn node_mut(&self, ix: NodeId) -> RefMut<Box<AudioNodeEngine>> {
@@ -377,7 +402,7 @@ impl Node {
 impl Edge {
     pub fn new(input_idx: PortIndex<InputPort>, output_idx: PortIndex<OutputPort>) -> Self {
         Edge {
-            connections: SmallVec::from_buf([Connection::new(input_idx, output_idx)])
+            connections: SmallVec::from_buf([Connection::new(input_idx, output_idx)]),
         }
     }
 }
