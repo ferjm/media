@@ -3,6 +3,7 @@ extern crate servo_media;
 
 use servo_media::audio::buffer_source_node::AudioBufferSourceNodeMessage;
 use servo_media::audio::node::{AudioNodeMessage, AudioNodeInit, AudioScheduledSourceNodeMessage};
+use servo_media::audio::node::OnEndedCallback;
 use servo_media::ServoMedia;
 use std::sync::Arc;
 use std::{thread, time};
@@ -24,6 +25,13 @@ fn run_example(servo_media: Arc<ServoMedia>) {
     context.message_node(
         buffer_source,
         AudioNodeMessage::AudioBufferSourceNode(AudioBufferSourceNodeMessage::SetBuffer(Some(buffers.into()))),
+    );
+    let callback = OnEndedCallback::new(|| {
+        println!("Playback ended");
+    });
+    context.message_node(
+        buffer_source,
+        AudioNodeMessage::AudioScheduledSourceNode(AudioScheduledSourceNodeMessage::RegisterOnEndedCallback(callback)),
     );
     let _ = context.resume();
     thread::sleep(time::Duration::from_millis(5000));
