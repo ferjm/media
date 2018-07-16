@@ -188,7 +188,13 @@ pub enum AudioNodeMessage {
     SetParamRate(ParamType, ParamRate),
 }
 
-pub type OnEndedCallback = Mutex<Box<FnBox() + Send + 'static>>;
+pub struct OnEndedCallback(pub Mutex<Option<Box<FnBox() + Send + 'static>>>);
+
+impl OnEndedCallback {
+    pub fn new<F: FnOnce() + Send + 'static>(callback: F) -> Self {
+        OnEndedCallback(Mutex::new(Some(Box::new(callback))))
+    }
+}
 
 /// Type of message directed to AudioScheduledSourceNodes.
 pub enum AudioScheduledSourceNodeMessage {

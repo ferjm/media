@@ -109,18 +109,20 @@ impl AudioNodeEngine for AudioBufferSourceNode {
     fn process(&mut self, mut inputs: Chunk, info: &BlockInfo) -> Chunk {
         debug_assert!(inputs.len() == 0);
 
-        let buffer = if let Some(buffer) = self.buffer.as_ref() {
-            buffer
-        } else {
+        if self.buffer.is_none() {
             inputs.blocks.push(Default::default());
             return inputs;
-        };
+        }
 
-        if self.playback_offset >= buffer.len() ||
-            self.should_play_at(info.frame) == (false, true) {
-                inputs.blocks.push(Default::default());
-                return inputs;
-            }
+        let len = { self.buffer.as_ref().unwrap().len() as usize };
+
+        if self.playback_offset >= len || self.should_play_at(info.frame) == (false, true) {
+            self.maybe_trigger_onended_callback();
+            inputs.blocks.push(Default::default());
+            return inputs;
+        }
+
+        let buffer = self.buffer.as_ref().unwrap();
 
         let samples_to_copy = match self.stop_at {
             Some(stop_at) => {
@@ -135,7 +137,6 @@ impl AudioNodeEngine for AudioBufferSourceNode {
         };
 
         let next_offset = self.playback_offset + samples_to_copy;
-
 
         if samples_to_copy == FRAMES_PER_BLOCK.0 as usize {
             // copy entire chan

@@ -85,6 +85,7 @@ impl AudioNodeEngine for OscillatorNode {
         inputs.blocks.push(Default::default());
 
         if self.should_play_at(info.frame) == (false, true) {
+            self.maybe_trigger_onended_callback();
             return inputs;
         }
 
@@ -110,6 +111,7 @@ impl AudioNodeEngine for OscillatorNode {
                 let (should_play_at, should_break) = self.should_play_at(info.frame + tick);
                 if !should_play_at {
                     if should_break {
+                        self.maybe_trigger_onended_callback();
                         break;
                     }
                     continue;

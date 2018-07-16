@@ -1,3 +1,5 @@
+#![recursion_limit="128"]
+
 extern crate proc_macro;
 extern crate syn;
 #[macro_use]
@@ -16,7 +18,7 @@ fn impl_audio_scheduled_source_node(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
     quote! {
         impl #name {
-            pub fn should_play_at(&self, tick: Tick) -> (bool, bool) {
+            fn should_play_at(&self, tick: Tick) -> (bool, bool) {
                 if self.start_at.is_none() {
                     return (false, true);
                 }
@@ -54,7 +56,17 @@ fn impl_audio_scheduled_source_node(ast: &syn::DeriveInput) -> quote::Tokens {
                 true
             }
 
-            pub fn handle_source_node_message(&mut self, message: AudioScheduledSourceNodeMessage, sample_rate: f32) {
+            fn maybe_trigger_onended_callback(&mut self) {
+                // We cannot have an end without a start.
+                if self.start_at.is_none() || self.onended_callback.is_none() {
+                    return;
+                }
+                let callback = self.onended_callback.take().unwrap();
+                let mut callback = callback.0.lock().unwrap();
+                callback.take().unwrap()();
+            }
+
+            fn handle_source_node_message(&mut self, message: AudioScheduledSourceNodeMessage, sample_rate: f32) {
                 match message {
                     AudioScheduledSourceNodeMessage::Start(when) => {
                         self.start(Tick::from_time(when, sample_rate));
