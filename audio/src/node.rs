@@ -188,18 +188,6 @@ pub enum AudioNodeMessage {
     SetParamRate(ParamType, ParamRate),
 }
 
-/// This trait represents the common features of the source nodes such as
-/// AudioBufferSourceNode, ConstantSourceNode and OscillatorNode.
-/// https://webaudio.github.io/web-audio-api/#AudioScheduledSourceNode
-pub trait AudioScheduledSourceNode {
-    /// Schedules a sound to playback at an exact time.
-    /// Returns true if the scheduling request is processed succesfully.
-    fn start(&mut self, tick: Tick) -> bool;
-    /// Schedules a sound to stop playback at an exact time.
-    /// Returns true if the scheduling request is processed successfully.
-    fn stop(&mut self, tick: Tick) -> bool;
-}
-
 pub type OnEndedCallback = Mutex<Box<FnBox() + Send + 'static>>;
 
 /// Type of message directed to AudioScheduledSourceNodes.

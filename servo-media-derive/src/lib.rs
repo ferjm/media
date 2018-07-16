@@ -15,8 +15,6 @@ pub fn audio_scheduled_source_node(input: TokenStream) -> TokenStream {
 fn impl_audio_scheduled_source_node(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
     quote! {
-        use node::AudioScheduledSourceNode;
-
         impl #name {
             pub fn should_play_at(&self, tick: Tick) -> (bool, bool) {
                 if self.start_at.is_none() {
@@ -35,22 +33,6 @@ fn impl_audio_scheduled_source_node(ast: &syn::DeriveInput) -> quote::Tokens {
                 }
             }
 
-            pub fn handle_source_node_message(&mut self, message: AudioScheduledSourceNodeMessage, sample_rate: f32) {
-                match message {
-                    AudioScheduledSourceNodeMessage::Start(when) => {
-                        self.start(Tick::from_time(when, sample_rate));
-                    }
-                    AudioScheduledSourceNodeMessage::Stop(when) => {
-                        self.stop(Tick::from_time(when, sample_rate));
-                    }
-                    AudioScheduledSourceNodeMessage::RegisterOnEndedCallback(callback) => {
-                        self.onended_callback = Some(callback);
-                    }
-                }
-            }
-        }
-
-        impl AudioScheduledSourceNode for #name {
             fn start(&mut self, tick: Tick) -> bool {
                 // We can only allow a single call to `start` and always before
                 // any `stop` calls.
@@ -70,6 +52,20 @@ fn impl_audio_scheduled_source_node(ast: &syn::DeriveInput) -> quote::Tokens {
                 // the last invocation will be the only one applied.
                 self.stop_at = Some(tick);
                 true
+            }
+
+            pub fn handle_source_node_message(&mut self, message: AudioScheduledSourceNodeMessage, sample_rate: f32) {
+                match message {
+                    AudioScheduledSourceNodeMessage::Start(when) => {
+                        self.start(Tick::from_time(when, sample_rate));
+                    }
+                    AudioScheduledSourceNodeMessage::Stop(when) => {
+                        self.stop(Tick::from_time(when, sample_rate));
+                    }
+                    AudioScheduledSourceNodeMessage::RegisterOnEndedCallback(callback) => {
+                        self.onended_callback = Some(callback);
+                    }
+                }
             }
         }
     }
