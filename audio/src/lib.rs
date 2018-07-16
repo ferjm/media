@@ -32,17 +32,3 @@ pub trait AudioBackend {
     fn init();
 }
 
-pub struct DummyBackend {}
-
-impl AudioBackend for DummyBackend {
-    type Decoder = decoder::DummyAudioDecoder;
-    type Sink = sink::DummyAudioSink;
-    fn make_decoder() -> Self::Decoder {
-        decoder::DummyAudioDecoder
-    }
-
-    fn make_sink() -> Result<Self::Sink, ()> {
-        Ok(sink::DummyAudioSink)
-    }
-    fn init() {}
-}

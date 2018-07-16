@@ -4,7 +4,6 @@ license = "MPL-2.0"
 name = "servo-media-audio"
 version = "0.1.0"
 
-
 [lib]
 name = "servo_media_audio"
 
@@ -18,7 +17,6 @@ features = ["stable_graph"]
 
 [dependencies.byte-slice-cast]
 version = "0.1"
-
 
 [dependencies.num-traits]
 version = "0.1"
