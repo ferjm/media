@@ -12,5 +12,5 @@ path = "../audio"
 [dependencies.servo-media-player]
 path = "../player"
 
-[target.'cfg(all(not(target_os = "android"), target_arch = "x86_64"))'.dependencies.servo-media-gstreamer]
+[target.'cfg(all(not(target_os = "android"), not(target_os = "window"), target_arch = "x86_64"))'.dependencies.servo-media-gstreamer]
 path = "../backends/gstreamer"

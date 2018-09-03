@@ -1,5 +1,5 @@
 pub extern crate servo_media_audio as audio;
-#[cfg(all(not(target_os = "android"), target_arch = "x86_64"))]
+#[cfg(all(not(target_os = "android"), not(target_os = "windows"), target_arch = "x86_64"))]
 extern crate servo_media_gstreamer;
 pub extern crate servo_media_player as player;
 use std::sync::{self, Arc, Mutex, Once};
@@ -40,9 +40,9 @@ impl DummyBackend {
     pub fn init() {}
 }
 
-#[cfg(all(not(target_os = "android"), target_arch = "x86_64"))]
+#[cfg(all(not(target_os = "android"), not(target_os = "windows"), target_arch = "x86_64"))]
 pub type Backend = servo_media_gstreamer::GStreamerBackend;
-#[cfg(not(all(not(target_os = "android"), target_arch = "x86_64")))]
+#[cfg(not(all(not(target_os = "android"), not(target_os = "windows"), target_arch = "x86_64")))]
 pub type Backend = DummyBackend;
 
 impl ServoMedia {
