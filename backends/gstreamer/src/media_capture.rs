@@ -1,6 +1,6 @@
 use crate::media_stream::{GStreamerMediaStream, StreamType};
 use gst::caps::{Builder, Caps};
-use gst::{DeviceExt, DeviceMonitor, DeviceMonitorExt};
+use gst::{DeviceExt, DeviceMonitor, DeviceMonitorExt, DeviceMonitorExtManual};
 use gst::{Fraction, FractionRange, IntRange, List};
 use std::i32;
 
@@ -9,10 +9,16 @@ pub enum Constrain<T> {
     Range(ConstrainRange<T>),
 }
 
-impl Constrain<u64> {
-    fn add_to_caps(self, name: &str, min: u64, max: u64, builder: Builder) -> Option<Builder> {
+impl<'a> Constrain<u64> {
+    fn add_to_caps(
+        &self,
+        name: &str,
+        min: u64,
+        max: u64,
+        builder: Builder<'a>,
+    ) -> Option<Builder<'a>> {
         match self {
-            Constrain::Value(v) => Some(builder.field(name, &(v as i64 as i32))),
+            Constrain::Value(v) => Some(builder.field(name, v)),
             Constrain::Range(r) => {
                 let min = into_i32(r.min.unwrap_or(min));
                 let max = into_i32(r.max.unwrap_or(max));
@@ -37,10 +43,16 @@ fn into_i32(x: u64) -> i32 {
     }
 }
 
-impl Constrain<f64> {
-    fn add_to_caps(self, name: &str, min: i32, max: i32, builder: Builder) -> Option<Builder> {
+impl<'a> Constrain<f64> {
+    fn add_to_caps(
+        &self,
+        name: &str,
+        min: i32,
+        max: i32,
+        builder: Builder<'a>,
+    ) -> Option<Builder<'a>> {
         match self {
-            Constrain::Value(v) => Some(builder.field("name", &Fraction::approximate_f64(v)?)),
+            Constrain::Value(v) => Some(builder.field("name", &Fraction::approximate_f64(*v)?)),
             Constrain::Range(r) => {
                 let min = r
                     .min
@@ -130,8 +142,8 @@ impl GstMediaDevices {
         println!("requesting {:?}", caps);
         let f = self.monitor.add_filter(filter, &caps);
         let devices = self.monitor.get_devices();
-        if f != 0 {
-            self.monitor.remove_filter(f);
+        if f.is_some() {
+            let _ = self.monitor.remove_filter(f.unwrap());
         }
         if let Some(d) = devices.get(0) {
             println!("{:?}", d.get_caps());

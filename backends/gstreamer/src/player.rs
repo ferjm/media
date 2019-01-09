@@ -53,17 +53,24 @@ fn metadata_from_media_info(media_info: &PlayerMediaInfo) -> Result<Metadata, ()
 
     let format = media_info
         .get_container_format()
-        .unwrap_or_else(|| "".to_owned());
+        .unwrap_or_else(|| GString::from(""))
+        .to_string();
 
     for stream_info in media_info.get_stream_list() {
         let stream_type = stream_info.get_stream_type();
         match stream_type.as_str() {
             "audio" => {
-                let codec = stream_info.get_codec().unwrap_or_else(|| "".to_owned());
+                let codec = stream_info
+                    .get_codec()
+                    .unwrap_or_else(|| GString::from(""))
+                    .to_string();
                 audio_tracks.push(codec);
             }
             "video" => {
-                let codec = stream_info.get_codec().unwrap_or_else(|| "".to_owned());
+                let codec = stream_info
+                    .get_codec()
+                    .unwrap_or_else(|| GString::from(""))
+                    .to_string();
                 video_tracks.push(codec);
             }
             _ => {}
@@ -172,9 +179,10 @@ impl PlayerInner {
 
     pub fn end_of_stream(&mut self) -> Result<(), PlayerError> {
         if let Some(ref mut servosrc) = self.servosrc {
-            if servosrc.end_of_stream() == gst::FlowReturn::Ok {
-                return Ok(());
-            }
+            servosrc
+                .end_of_stream()
+                .map(|_| ())
+                .map_err(|_| PlayerError::EOSFailed)?
         }
         Err(PlayerError::EOSFailed)
     }
@@ -211,11 +219,11 @@ impl PlayerInner {
             if servosrc.get_current_level_bytes() + data.len() as u64 > servosrc.get_max_bytes() {
                 return Err(PlayerError::EnoughData);
             }
-            let buffer =
-                gst::Buffer::from_slice(data).ok_or_else(|| PlayerError::BufferPushFailed)?;
-            if servosrc.push_buffer(buffer) == gst::FlowReturn::Ok {
-                return Ok(());
-            }
+            let buffer = gst::Buffer::from_slice(data);
+            return servosrc
+                .push_buffer(buffer)
+                .map(|_| ())
+                .map_err(|_| PlayerError::BufferPushFailed);
         }
         Err(PlayerError::BufferPushFailed)
     }
@@ -364,11 +372,8 @@ impl GStreamerPlayer {
             }
         }
 
-        if !register_servo_src() {
-            return Err(PlayerError::Backend(
-                "servosrc registration error".to_owned(),
-            ));
-        }
+        register_servo_src()
+            .map_err(|_| PlayerError::Backend("servosrc registration error".to_owned()))?;
 
         let player = gst_player::Player::new(
             /* video renderer */ None, /* signal dispatcher */ None,
@@ -583,20 +588,19 @@ impl GStreamerPlayer {
         // Set appsink callbacks.
         inner.lock().unwrap().appsink.set_callbacks(
             gst_app::AppSinkCallbacks::new()
-                .new_preroll(|_| gst::FlowReturn::Ok)
+                .new_preroll(|_| Ok(gst::FlowSuccess::Ok))
                 .new_sample(move |appsink| {
-                    let sample = match appsink.pull_sample() {
-                        None => return gst::FlowReturn::Eos,
-                        Some(sample) => sample,
-                    };
-
-                    match renderers.lock().unwrap().render(&sample) {
-                        Ok(_) => {
+                    let sample = appsink.pull_sample().ok_or(gst::FlowError::Eos)?;
+                    renderers
+                        .lock()
+                        .unwrap()
+                        .render(&sample)
+                        .map(|_| {
                             observers.lock().unwrap().notify(PlayerEvent::FrameUpdated);
-                            return gst::FlowReturn::Ok;
-                        }
-                        Err(_) => return gst::FlowReturn::Error,
-                    };
+                        })
+                        .map_err(|_| gst::FlowError::Error)?;
+
+                    Ok(gst::FlowSuccess::Ok)
                 })
                 .build(),
         );

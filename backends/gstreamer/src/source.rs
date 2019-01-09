@@ -1,28 +1,18 @@
 use glib;
+use glib::subclass;
+use glib::subclass::prelude::*;
 use glib::translate::*;
-use glib_ffi;
-use gobject_ffi;
-use gobject_subclass::object::*;
 use gst;
-use gst::query::{QueryRef, QueryView};
-use gst_app::{self, AppSrc, AppSrcCallbacks, AppStreamType};
-use gst_ffi;
-use gst_plugin::bin::*;
-use gst_plugin::element::ElementImpl;
-use gst_plugin::object::ElementInstanceStruct;
-use gst_plugin::uri_handler::{register_uri_handler, URIHandlerImpl, URIHandlerImplStatic};
-use std::mem;
-use std::ptr;
-use std::sync::{Once, ONCE_INIT};
+use gst::prelude::*;
+use gst::subclass::prelude::*;
+use gst_app;
 use url::Url;
 
 const MAX_SRC_QUEUE_SIZE: u64 = 50 * 1024 * 1024; // 50 MB.
 
+// Implementation sub-module of the GObject
 mod imp {
     use super::*;
-    use glib::prelude::*;
-    use gst::ElementExt;
-    use gst_plugin::element::ElementClassExt;
 
     macro_rules! inner_appsrc_proxy {
         ($fn_name:ident, $return_type:ty) => (
@@ -38,85 +28,36 @@ mod imp {
         )
     }
 
+    // The actual data structure that stores our values. This is not accessible
+    // directly from the outside.
     pub struct ServoSrc {
+        cat: gst::DebugCategory,
         appsrc: gst_app::AppSrc,
+        srcpad: gst::GhostPad,
     }
 
     impl ServoSrc {
-        fn init(_bin: &Bin) -> Box<BinImpl<Bin>> {
-            let appsrc = gst::ElementFactory::make("appsrc", None)
-                .map(|elem| elem.downcast::<AppSrc>().unwrap())
-                .expect("Could not create appsrc element");
-
-            appsrc.set_max_bytes(MAX_SRC_QUEUE_SIZE);
-            appsrc.set_property_block(false);
-            appsrc.set_property_format(gst::Format::Bytes);
-
-            // At this point the bin is not completely created,
-            // so we cannot add anything to it yet.
-            // We have to wait until ObjectImpl::constructed.
-            Box::new(Self { appsrc })
-        }
-
-        pub fn get_type() -> glib::Type {
-            static ONCE: Once = ONCE_INIT;
-            static mut TYPE: glib::Type = glib::Type::Invalid;
-
-            ONCE.call_once(|| {
-                let t = register_type(ServoSrcStatic);
-                unsafe {
-                    TYPE = t;
-                }
-            });
-
-            unsafe { TYPE }
-        }
-
-        fn class_init(klass: &mut BinClass) {
-            klass.set_metadata(
-                "Servo Media Source",
-                "Source/Audio/Video",
-                "Feed player with media data",
-                "Servo developers",
-            );
-        }
-
         pub fn set_size(&self, size: i64) {
-            if self.appsrc.get_size() != -1 {
-                return;
+            if self.appsrc.get_size() == -1 {
+                self.appsrc.set_size(size);
             }
-            self.appsrc.set_size(size);
         }
 
-        inner_appsrc_proxy!(end_of_stream, gst::FlowReturn);
+        inner_appsrc_proxy!(end_of_stream, Result<gst::FlowSuccess, gst::FlowError>);
         inner_appsrc_proxy!(get_current_level_bytes, u64);
         inner_appsrc_proxy!(get_max_bytes, u64);
-        inner_appsrc_proxy!(push_buffer, buffer, gst::Buffer, gst::FlowReturn);
-        inner_appsrc_proxy!(set_callbacks, callbacks, AppSrcCallbacks, ());
-        inner_appsrc_proxy!(set_stream_type, type_, AppStreamType, ());
-    }
+        inner_appsrc_proxy!(push_buffer, buffer, gst::Buffer, Result<gst::FlowSuccess, gst::FlowError>);
+        inner_appsrc_proxy!(set_callbacks, callbacks, gst_app::AppSrcCallbacks, ());
+        inner_appsrc_proxy!(set_stream_type, type_, gst_app::AppStreamType, ());
 
-    impl ObjectImpl<Bin> for ServoSrc {
-        fn constructed(&self, bin: &Bin) {
-            bin.parent_constructed();
+        fn query(
+            &self,
+            pad: &gst::Pad,
+            _element: &gst::Element,
+            query: &mut gst::QueryRef,
+        ) -> bool {
+            gst_log!(self.cat, obj: pad, "Handling query {:?}", query);
 
-            self.add_element(bin, &self.appsrc.clone().upcast());
-
-            let pad = self
-                .appsrc
-                .get_static_pad("src")
-                .expect("Could not get src pad");
-
-            let ghost_pad =
-                gst::GhostPad::new("src", &pad).expect("Could not create src ghost pad");
-
-            bin.add_pad(&ghost_pad)
-                .expect("Could not add src ghost pad to bin");
-        }
-    }
-
-    impl ElementImpl<Bin> for ServoSrc {
-        fn query(&self, _element: &Bin, query: &mut QueryRef) -> bool {
             // In order to make buffering/downloading work as we want, apart from
             // setting the appropriate flags on the player playbin,
             // the source needs to either:
@@ -130,21 +71,140 @@ mod imp {
             //
             // For 2. we need to make servosrc handle the scheduling properties query
             // to report that it "is bandwidth limited".
-            if let QueryView::Scheduling(ref mut query) = query.view_mut() {
-                query.set(
-                    gst::SchedulingFlags::SEQUENTIAL | gst::SchedulingFlags::BANDWIDTH_LIMITED,
-                    1,
-                    -1,
-                    0,
-                );
-                query.add_scheduling_modes(&[gst::PadMode::Push]);
-                return true;
+            let ret = match query.view_mut() {
+                gst::QueryView::Scheduling(ref mut q) => {
+                    let flags =
+                        gst::SchedulingFlags::SEQUENTIAL | gst::SchedulingFlags::BANDWIDTH_LIMITED;
+                    q.set(flags, 1, -1, 0);
+                    q.add_scheduling_modes(&[gst::PadMode::Push]);
+                    true
+                }
+                _ => false,
+            };
+            let ret = if !ret {
+                pad.query_default(None::<&gst::Pad>, query)
+            } else {
+                true
+            };
+
+            if ret {
+                gst_log!(self.cat, obj: pad, "Handled query {:?}", query);
+            } else {
+                gst_log!(self.cat, obj: pad, "Didn't handle query {:?}", query);
             }
-            false
+            ret
         }
     }
 
-    impl BinImpl<Bin> for ServoSrc {}
+    // Basic declaration of our type for the GObject type system
+    impl ObjectSubclass for ServoSrc {
+        const NAME: &'static str = "ServoSrc";
+        type ParentType = gst::Bin;
+        type Instance = gst::subclass::ElementInstanceStruct<Self>;
+        type Class = subclass::simple::ClassStruct<Self>;
+
+        glib_object_subclass!();
+
+        // Called once at the very beginning of instantiation of each instance and
+        // creates the data structure that contains all our state
+        fn new_with_class(klass: &subclass::simple::ClassStruct<Self>) -> Self {
+            let app_src = gst::ElementFactory::make("appsrc", None)
+                .map(|elem| elem.downcast::<gst_app::AppSrc>().unwrap())
+                .expect("Could not create appsrc element");
+
+            let pad_templ = klass.get_pad_template("src").unwrap();
+            let ghost_pad = gst::GhostPad::new_no_target_from_template("src", &pad_templ).unwrap();
+
+            ghost_pad.set_query_function(|pad, parent, query| {
+                ServoSrc::catch_panic_pad_function(
+                    parent,
+                    || false,
+                    |queue, element| queue.query(pad.upcast_ref::<gst::Pad>(), element, query),
+                )
+            });
+
+            Self {
+                cat: gst::DebugCategory::new(
+                    "servosrc",
+                    gst::DebugColorFlags::empty(),
+                    "Servo source",
+                ),
+                appsrc: app_src,
+                srcpad: ghost_pad,
+            }
+        }
+
+        // Adds interface implemenations in the class
+        fn type_init(type_: &mut subclass::InitializingType<Self>) {
+            type_.add_interface::<gst::URIHandler>();
+        }
+
+        // Called exactly once before the first instantiation of an instance. This
+        // sets up any type-specific things, in this specific case it installs the
+        // properties so that GObject knows about their existence and they can be
+        // used on instances of our type
+        fn class_init(klass: &mut subclass::simple::ClassStruct<Self>) {
+            klass.set_metadata(
+                "Servo Media Source",
+                "Source/Audio/Video",
+                "Feed player with media data",
+                "Servo developers",
+            );
+
+            let caps = gst::Caps::new_any();
+            let src_pad_template = gst::PadTemplate::new(
+                "src",
+                gst::PadDirection::Src,
+                gst::PadPresence::Always,
+                &caps,
+            )
+            .unwrap();
+            klass.add_pad_template(src_pad_template);
+        }
+    }
+
+    // The ObjectImpl trait provides the setters/getters for GObject properties.
+    // Here we need to provide the values that are internally stored back to the
+    // caller, or store whatever new value the caller is providing.
+    //
+    // This maps between the GObject properties and our internal storage of the
+    // corresponding values of the properties.
+    impl ObjectImpl for ServoSrc {
+        glib_object_impl!();
+
+        // Called right after construction of a new instance
+        fn constructed(&self, obj: &glib::Object) {
+            // Call the parent class' ::constructed() implementation first
+            self.parent_constructed(obj);
+
+            let bin = obj.downcast_ref::<gst::Bin>().unwrap();
+            self.add_element(bin, &self.appsrc.clone().upcast())
+                .expect("Could not add appsrc element to bin");
+
+            let target_pad = self
+                .appsrc
+                .get_static_pad("src")
+                .expect("Could not get source pad");
+            self.srcpad.set_target(&target_pad).unwrap();
+
+            let element = obj.downcast_ref::<gst::Element>().unwrap();
+            element
+                .add_pad(&self.srcpad)
+                .expect("Could not add source pad to bin");
+
+            self.appsrc.set_max_bytes(MAX_SRC_QUEUE_SIZE);
+            self.appsrc.set_property_block(false);
+            self.appsrc.set_property_format(gst::Format::Bytes);
+
+            ::set_element_flags(element, gst::ElementFlags::SOURCE);
+        }
+    }
+
+    // Implementation of gst::Element virtual methods
+    impl ElementImpl for ServoSrc {}
+
+    // Implementation of gst::Bin virtual methods
+    impl BinImpl for ServoSrc {}
 
     impl URIHandlerImpl for ServoSrc {
         fn get_uri(&self, _element: &gst::URIHandler) -> Option<String> {
@@ -168,63 +228,62 @@ mod imp {
                 format!("Invalid URI '{:?}'", uri,).as_str(),
             ))
         }
-    }
 
-    pub struct ServoSrcStatic;
-
-    impl ImplTypeStatic<Bin> for ServoSrcStatic {
-        fn get_name(&self) -> &str {
-            "ServoSrc"
-        }
-
-        fn new(&self, bin: &Bin) -> Box<BinImpl<Bin>> {
-            ServoSrc::init(bin)
-        }
-
-        fn class_init(&self, klass: &mut BinClass) {
-            ServoSrc::class_init(klass);
-        }
-
-        fn type_init(&self, token: &TypeInitToken, type_: glib::Type) {
-            register_uri_handler(token, type_, self);
-        }
-    }
-
-    impl URIHandlerImplStatic<Bin> for ServoSrcStatic {
-        fn get_impl<'a>(&self, imp: &'a Box<BinImpl<Bin>>) -> &'a URIHandlerImpl {
-            imp.downcast_ref::<ServoSrc>().unwrap()
-        }
-
-        fn get_type(&self) -> gst::URIType {
+        fn get_uri_type() -> gst::URIType {
             gst::URIType::Src
         }
 
-        fn get_protocols(&self) -> Vec<String> {
+        fn get_protocols() -> Vec<String> {
             vec!["servosrc".into()]
         }
     }
 }
 
+// Public part of the ServoSrc type. This behaves like a normal
+// GObject binding
 glib_wrapper! {
-    pub struct ServoSrc(Object<imp::ServoSrc>):
-        [Bin => ElementInstanceStruct<Bin>,
-         gst::Bin => gst_ffi::GstBin,
-         gst::Element => gst_ffi::GstElement,
-         gst::Object => gst_ffi::GstObject];
+    pub struct ServoSrc(Object<gst::subclass::ElementInstanceStruct<imp::ServoSrc>,
+                        subclass::simple::ClassStruct<imp::ServoSrc>, ServoSrcClass>)
+        @extends gst::Bin, gst::Element, gst::Object, @implements gst::URIHandler;
 
     match fn {
         get_type => || imp::ServoSrc::get_type().to_glib(),
     }
 }
 
-gobject_subclass_deref!(ServoSrc, Bin);
-
 unsafe impl Send for ServoSrc {}
 unsafe impl Sync for ServoSrc {}
 
-impl ServoSrc {}
+macro_rules! inner_servosrc_proxy {
+    ($fn_name:ident, $return_type:ty) => (
+        pub fn $fn_name(&self) -> $return_type {
+            imp::ServoSrc::from_instance(self).$fn_name()
+        }
+    );
 
-pub fn register_servo_src() -> bool {
-    let type_ = imp::ServoSrc::get_type();
-    gst::Element::register(None, "servosrc", 0, type_)
+    ($fn_name:ident, $arg1:ident, $arg1_type:ty, $return_type:ty) => (
+        pub fn $fn_name(&self, $arg1: $arg1_type) -> $return_type {
+            imp::ServoSrc::from_instance(self).$fn_name($arg1)
+        }
+    )
+}
+
+impl ServoSrc {
+    pub fn set_size(&self, size: i64) {
+        imp::ServoSrc::from_instance(self).set_size(size)
+    }
+
+    inner_servosrc_proxy!(end_of_stream, Result<gst::FlowSuccess, gst::FlowError>);
+    inner_servosrc_proxy!(get_current_level_bytes, u64);
+    inner_servosrc_proxy!(get_max_bytes, u64);
+    inner_servosrc_proxy!(push_buffer, buffer, gst::Buffer, Result<gst::FlowSuccess, gst::FlowError>);
+    inner_servosrc_proxy!(set_callbacks, callbacks, gst_app::AppSrcCallbacks, ());
+    inner_servosrc_proxy!(set_stream_type, type_, gst_app::AppStreamType, ());
+}
+
+// Registers the type for our element, and then registers in GStreamer
+// under the name "servosrc" for being able to instantiate it via e.g.
+// gst::ElementFactory::make().
+pub fn register_servo_src() -> Result<(), glib::BoolError> {
+    gst::Element::register(None, "servosrc", 0, ServoSrc::static_type())
 }

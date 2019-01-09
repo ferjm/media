@@ -116,7 +116,6 @@ impl AudioSink for GStreamerAudioSink {
     fn play(&self) -> Result<(), AudioSinkError> {
         self.pipeline
             .set_state(gst::State::Playing)
-            .into_result()
             .map(|_| ())
             .map_err(|_| AudioSinkError::StateChangeFailed)
     }
@@ -124,7 +123,6 @@ impl AudioSink for GStreamerAudioSink {
     fn stop(&self) -> Result<(), AudioSinkError> {
         self.pipeline
             .set_state(gst::State::Paused)
-            .into_result()
             .map(|_| ())
             .map_err(|_| AudioSinkError::StateChangeFailed)
     }
@@ -184,7 +182,6 @@ impl AudioSink for GStreamerAudioSink {
 
         self.appsrc
             .push_buffer(buffer)
-            .into_result()
             .map(|_| ())
             .map_err(|_| AudioSinkError::BufferPushFailed)
     }

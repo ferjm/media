@@ -1,6 +1,6 @@
 use glib::ObjectExt;
-use gst::{self, BinExt, BinExtManual, ElementExt, GObjectExtManualGst};
-use servo_media_webrtc::{MediaStream, MediaOutput};
+use gst::{self, ElementExt, GObjectExtManualGst, GstBinExt, GstBinExtManual};
+use servo_media_webrtc::{MediaOutput, MediaStream};
 use std::any::Any;
 
 lazy_static! {
@@ -132,7 +132,7 @@ impl GStreamerMediaStream {
     pub fn create_stream_with_pipeline(
         type_: StreamType,
         elements: Vec<gst::Element>,
-        pipeline: gst::Pipeline
+        pipeline: gst::Pipeline,
     ) -> GStreamerMediaStream {
         GStreamerMediaStream {
             type_,
@@ -148,21 +148,22 @@ pub struct MediaSink {
 
 impl MediaSink {
     pub fn new() -> Self {
-        MediaSink {
-            streams: vec![],
-        }
+        MediaSink { streams: vec![] }
     }
 }
 
 impl MediaOutput for MediaSink {
     fn add_stream(&mut self, stream: Box<MediaStream>) {
         {
-            let stream = stream.as_any().downcast_ref::<GStreamerMediaStream>().unwrap();
+            let stream = stream
+                .as_any()
+                .downcast_ref::<GStreamerMediaStream>()
+                .unwrap();
             let last_element = stream.elements.last();
             let last_element = last_element.as_ref().unwrap();
             let sink = match stream.type_ {
                 StreamType::Audio => "autoaudiosink",
-                StreamType::Video =>"autovideosink",
+                StreamType::Video => "autovideosink",
             };
             let sink = gst::ElementFactory::make(sink, None).unwrap();
             stream.pipeline.as_ref().unwrap().add(&sink).unwrap();

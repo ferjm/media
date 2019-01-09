@@ -6,6 +6,7 @@ authors = ["The Servo Project Developers"]
 [build-dependencies]
 regex = "1.0"
 zip = "0.3.1"
+lazy_static = "1.2.0"
 
 [dependencies]
 boxfnonce = "0.1.0"
@@ -13,44 +14,36 @@ boxfnonce = "0.1.0"
 [dependencies.byte-slice-cast]
 version = "0.2"
 
-[dependencies.glib]
-version = "0.6"
-
 [dependencies.glib-sys]
-version = "0.7"
-
-[dependencies.gobject-subclass]
-version = "0.2.1"
-
-[dependencies.gobject-sys]
-version = "0.7"
-
-[dependencies.gst-plugin]
-version = "0.3.1"
-
-[dependencies.gstreamer]
-version = "0.12"
-
-[dependencies.gstreamer-app]
-version = "0.12"
-
-[dependencies.gstreamer-audio]
-version = "0.12"
-
-[dependencies.gstreamer-player]
-version = "0.12"
+git = "https://github.com/gtk-rs/sys"
 
 [dependencies.gstreamer-sys]
-version = "0.6.1"
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys"
+
+[dependencies.glib]
+git = "https://github.com/gtk-rs/glib"
+
+[dependencies.gstreamer]
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
+features = ["subclassing"]
+
+[dependencies.gstreamer-app]
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
+
+[dependencies.gstreamer-audio]
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
+
+[dependencies.gstreamer-player]
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
 
 [dependencies.gstreamer-sdp]
-version = "0.12"
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
 
 [dependencies.gstreamer-webrtc]
-version = "0.12"
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
 
 [dependencies.gstreamer-video]
-version = "0.12"
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
 
 [dependencies.ipc-channel]
 version = "0.11"
