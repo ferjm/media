@@ -33,6 +33,10 @@ git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
 [dependencies.gstreamer-audio]
 git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
 
+[dependencies.gstreamer-gl]
+git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
+features = ["egl"]
+
 [dependencies.gstreamer-player]
 git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs"
 

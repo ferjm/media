@@ -747,6 +747,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "gstreamer-gl"
+version = "0.13.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#226070d2163d31cd959198ac17bcf0c3932e89f7"
+dependencies = [
+ "bitflags 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "byteorder 1.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glib 0.6.0 (git+https://github.com/gtk-rs/glib)",
+ "glib-sys 0.7.0 (git+https://github.com/gtk-rs/sys)",
+ "gobject-sys 0.7.0 (git+https://github.com/gtk-rs/sys)",
+ "gstreamer 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
+ "gstreamer-base 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
+ "gstreamer-base-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
+ "gstreamer-gl-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
+ "gstreamer-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
+ "gstreamer-video 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
+ "gstreamer-video-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "gstreamer-gl-sys"
+version = "0.7.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys#980baacf6c941b293e6300cb0f8d0ae336bb8032"
+dependencies = [
+ "glib-sys 0.7.0 (git+https://github.com/gtk-rs/sys)",
+ "gobject-sys 0.7.0 (git+https://github.com/gtk-rs/sys)",
+ "gstreamer-base-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
+ "gstreamer-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
+ "gstreamer-video-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "gstreamer-player"
 version = "0.13.0"
 source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#354f9fbfe48931c75a7b0d6f355ac16c9bc6bdc0"
@@ -1676,6 +1711,7 @@ dependencies = [
  "gstreamer 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
  "gstreamer-app 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
  "gstreamer-audio 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
+ "gstreamer-gl 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
  "gstreamer-player 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
  "gstreamer-sdp 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)",
  "gstreamer-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)",
@@ -2485,6 +2521,8 @@ dependencies = [
 "checksum gstreamer-audio-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)" = "<none>"
 "checksum gstreamer-base 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)" = "<none>"
 "checksum gstreamer-base-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)" = "<none>"
+"checksum gstreamer-gl 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)" = "<none>"
+"checksum gstreamer-gl-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)" = "<none>"
 "checksum gstreamer-player 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)" = "<none>"
 "checksum gstreamer-player-sys 0.7.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs-sys)" = "<none>"
 "checksum gstreamer-sdp 0.13.0 (git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs)" = "<none>"

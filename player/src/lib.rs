@@ -64,6 +64,15 @@ pub enum StreamType {
     RandomAccess,
 }
 
+pub enum GlContext {
+    // the EGL platform used primarily with the X11, wayland and
+    // android window systems as well as on embedded Linux
+    Egl(usize),
+    // the GLX platform used primarily with the X11 window system
+    Glx(usize),
+    Unknown,
+}
+
 pub trait Player: Send {
     fn register_event_handler(&self, sender: IpcSender<PlayerEvent>);
     fn register_frame_renderer(&self, renderer: Arc<Mutex<frame::FrameRenderer>>);
@@ -80,6 +89,7 @@ pub trait Player: Send {
     fn end_of_stream(&self) -> Result<(), PlayerError>;
     /// Get the list of time ranges in seconds that have been buffered.
     fn buffered(&self) -> Result<Vec<Range<f64>>, PlayerError>;
+    fn set_gl_params(&self, gl_context: GlContext, gl_display: usize);
 }
 
 pub struct DummyPlayer {}
@@ -127,6 +137,7 @@ impl Player for DummyPlayer {
     fn buffered(&self) -> Result<Vec<Range<f64>>, PlayerError> {
         Ok(vec![])
     }
+    fn set_gl_params(&self, _: GlContext, _: usize) {}
 }
 
 pub trait PlayerBackend {
