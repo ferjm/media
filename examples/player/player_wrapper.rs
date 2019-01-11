@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use glutin::os::{unix::RawHandle, GlContextExt};
 use ipc_channel::ipc;
 use servo_media::player::frame::{Frame, FrameRenderer};
-use servo_media::player::{Player, PlayerEvent};
+use servo_media::player::{GlContext, Player, PlayerEvent};
 use servo_media::ServoMedia;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -19,16 +20,32 @@ pub struct PlayerWrapper {
 }
 
 impl PlayerWrapper {
-    pub fn new(path: &Path) -> Self {
+    pub fn new(path: &Path, context: &glutin::Context) -> Self {
         let servo_media = ServoMedia::get().unwrap();
         let player = Arc::new(Mutex::new(servo_media.create_player()));
+
         let file = File::open(&path).unwrap();
         let metadata = file.metadata().unwrap();
+
+        match unsafe { context.raw_handle() } {
+            RawHandle::Egl(egl_context) => {
+                let gl_context = GlContext::Egl(egl_context as usize);
+                if let Some(gl_display) = unsafe { context.get_egl_display() } {
+                    player
+                        .lock()
+                        .unwrap()
+                        .set_gl_params(gl_context, gl_display as usize);
+                }
+            }
+            RawHandle::Glx(_) => {}
+        };
+
         player
             .lock()
             .unwrap()
             .set_input_size(metadata.len())
             .unwrap();
+
         let (sender, receiver) = ipc::channel().unwrap();
         player.lock().unwrap().register_event_handler(sender);
         let player_ = player.clone();

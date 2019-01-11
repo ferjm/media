@@ -193,7 +193,7 @@ pub fn main_wrapper<E: Example + FrameRenderer>(
     txn.generate_frame();
     api.send_transaction(document_id, txn);
 
-    let player_wrapper = PlayerWrapper::new(path);
+    let player_wrapper = PlayerWrapper::new(path, window.context());
     player_wrapper.register_frame_renderer(example.clone());
 
     println!("Entering event loop");
