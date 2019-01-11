@@ -344,23 +344,89 @@ impl GStreamerPlayer {
     ) -> Result<gst_app::AppSink, PlayerError> {
         let pipeline = player.get_pipeline();
 
-        let video_sink = gst::ElementFactory::make("appsink", None)
-            .ok_or(PlayerError::Backend("appsink creation failed".to_owned()))?;
+        let appsink = gst::ElementFactory::make("appsink", None)
+            .ok_or(PlayerError::Backend("appsink creation failed".to_owned()))?
+            .dynamic_cast::<gst_app::AppSink>()
+            .unwrap();
 
-        pipeline
-            .set_property("video-sink", &video_sink.to_value())
-            .map_err(|e| PlayerError::Backend(e.to_string()))?;
+        if self.gl_context.borrow().is_some() {
+            let glsink = gst::ElementFactory::make("glsinkbin", None)
+                .ok_or(PlayerError::Backend("glsinkbin creation failed".to_owned()))?;
 
-        let video_sink = video_sink.dynamic_cast::<gst_app::AppSink>().unwrap();
-        video_sink.set_caps(&gst::Caps::new_simple(
-            "video/x-raw",
-            &[
-                ("format", &"BGRA"),
-                ("pixel-aspect-ratio", &gst::Fraction::from((1, 1))),
-            ],
-        ));
+            let caps = gst::Caps::builder("video/x-raw")
+                .features(&[&gst_gl::CAPS_FEATURE_MEMORY_GL_MEMORY])
+                .field("format", &gst_video::VideoFormat::Rgba.to_string())
+                .field("texture-target", &"2D")
+                .build();
+            appsink.set_caps(&caps);
 
-        Ok(video_sink)
+            glsink
+                .set_property("sink", &appsink)
+                .map_err(|e| PlayerError::Backend(e.to_string()))?;
+
+            pipeline
+                .set_property("video-sink", &glsink.to_value())
+                .map_err(|e| PlayerError::Backend(e.to_string()))?;
+        } else {
+            let caps = gst::Caps::builder("video/x-raw")
+                .field("format", &gst_video::VideoFormat::Bgra.to_string())
+                .field("pixel-aspect-ratio", &gst::Fraction::from((1, 1)))
+                .build();
+            appsink.set_caps(&caps);
+
+            pipeline
+                .set_property("video-sink", &appsink.to_value())
+                .map_err(|e| PlayerError::Backend(e.to_string()))?;
+        };
+
+        if self.gl_context.borrow().is_some() {
+            use gst::ElementExt;
+
+            let bus = pipeline
+                .get_bus()
+                .ok_or(PlayerError::Backend("pipeline without bus".to_owned()))?;
+
+            let gl_context = self.gl_context.replace(None).unwrap();
+            let gl_display = self.gl_display.replace(None).unwrap();
+            bus.set_sync_handler(move |_, msg| {
+                use gst::MessageView;
+
+                match msg.view() {
+                    MessageView::NeedContext(ctxt) => {
+                        let context_type = ctxt.get_context_type();
+                        if context_type == *gst_gl::GL_DISPLAY_CONTEXT_TYPE {
+                            if let Some(el) =
+                                msg.get_src().map(|s| s.downcast::<gst::Element>().unwrap())
+                            {
+                                use gst_gl::ContextGLExt;
+
+                                let context = gst::Context::new(context_type, true);
+                                context.set_gl_display(&gl_display);
+                                el.set_context(&context);
+                            }
+                        }
+                        if context_type == "gst.gl.app_context" {
+                            if let Some(el) =
+                                msg.get_src().map(|s| s.downcast::<gst::Element>().unwrap())
+                            {
+                                let mut context = gst::Context::new(context_type, true);
+                                {
+                                    let context = context.get_mut().unwrap();
+                                    let mut s = context.get_mut_structure();
+                                    s.set_value("context", gl_context.to_send_value());
+                                }
+                                el.set_context(&context);
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+
+                gst::BusSyncReply::Pass
+            });
+        }
+
+        Ok(appsink)
     }
 
     fn setup(&self) -> Result<(), PlayerError> {
