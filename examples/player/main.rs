@@ -61,8 +61,8 @@ impl ui::Example for App {
         } else {
             self.frame_queue.pop().unwrap()
         };
-        let width = frame.get_width() as u32;
-        let height = frame.get_height() as u32;
+        let width = frame.get_width();
+        let height = frame.get_height();
         let image_descriptor =
             ImageDescriptor::new(width, height, ImageFormat::BGRA8, false, false);
         let image_data = ImageData::new_shared(frame.get_data().clone());
@@ -76,9 +76,10 @@ impl ui::Example for App {
             None,
             TransformStyle::Flat,
             MixBlendMode::Normal,
-            Vec::new(),
-            GlyphRasterSpace::Screen,
+            &[],
+            RasterSpace::Screen,
         );
+
         let image_size = LayoutSize::new(width as f32, height as f32);
         let info = LayoutPrimitiveInfo::new(bounds);
         builder.push_image(
@@ -88,6 +89,7 @@ impl ui::Example for App {
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             image_key,
+            ColorF::WHITE,
         );
         builder.pop_stacking_context();
     }
