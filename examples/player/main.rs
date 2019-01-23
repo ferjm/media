@@ -63,8 +63,10 @@ impl ui::Example for App {
         };
         let width = frame.get_width();
         let height = frame.get_height();
-        let image_descriptor =
+        let mut image_descriptor =
             ImageDescriptor::new(width, height, ImageFormat::BGRA8, false, false);
+        image_descriptor.stride = frame.get_stride();
+        image_descriptor.offset = frame.get_offset();
         let image_data = ImageData::new_shared(frame.get_data().clone());
         self.current_frame = Some(frame);
         let image_key = api.generate_image_key();

@@ -34,6 +34,8 @@ fn frame_from_sample(sample: &gst::Sample) -> Result<Frame, ()> {
         info.width() as i32,
         info.height() as i32,
         Arc::new(data.to_vec()),
+        Some(info.stride()[0] as i32),
+        info.offset()[0] as i32,
     ))
 }
 
