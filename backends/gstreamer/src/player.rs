@@ -112,6 +112,7 @@ struct PlayerInner {
     rate: f64,
     stream_type: Option<AppStreamType>,
     last_metadata: Option<Metadata>,
+    cat: gst::DebugCategory,
 }
 
 impl PlayerInner {
@@ -140,7 +141,8 @@ impl PlayerInner {
         self.rate = rate;
         if let Some(ref metadata) = self.last_metadata {
             if !metadata.is_seekable {
-                eprintln!("Player must be seekable in order to set the playback rate");
+                gst_warning!(self.cat, obj: &self.player,
+                             "Player must be seekable in order to set the playback rate");
                 return Err(PlayerError::NonSeekableStream);
             }
             self.player.set_rate(rate);
@@ -201,7 +203,7 @@ impl PlayerInner {
         if let Some(ref metadata) = self.last_metadata {
             if let Some(ref duration) = metadata.duration {
                 if duration < &time::Duration::new(time as u64, 0) {
-                    eprintln!("Trying to seek out of range");
+                    gst_warning!(self.cat, obj: &self.player, "Trying to seek out of range");
                     return Err(PlayerError::SeekOutOfRange);
                 }
             }
@@ -521,6 +523,11 @@ impl GStreamerPlayer {
             rate: 1.0,
             stream_type: None,
             last_metadata: None,
+            cat: gst::DebugCategory::new(
+                "servoplayer",
+                gst::DebugColorFlags::empty(),
+                "Servo player",
+            ),
         })));
 
         let inner = self.inner.borrow();
@@ -608,6 +615,7 @@ impl GStreamerPlayer {
                         if metadata.is_seekable {
                             inner.player.set_rate(inner.rate);
                         }
+                        gst_info!(inner.cat, obj: &inner.player, "Metadata updated: {:?}", metadata);
                         observers
                             .lock()
                             .unwrap()
@@ -624,15 +632,16 @@ impl GStreamerPlayer {
             .unwrap()
             .player
             .connect_duration_changed(move |_, duration| {
+                let mut inner = inner_clone.lock().unwrap();
                 let duration = if duration != gst::ClockTime::none() {
                     let nanos = duration.nanoseconds();
                     if nanos.is_none() {
-                        eprintln!("Could not get duration nanoseconds");
+                        gst_info!(inner.cat, obj: &inner.player, "Could not get duration nanoseconds");
                         return;
                     }
                     let seconds = duration.seconds();
                     if seconds.is_none() {
-                        eprintln!("Could not get duration seconds");
+                        gst_info!(inner.cat, obj: &inner.player, "Could not get duration seconds");
                         return;
                     }
                     Some(time::Duration::new(
@@ -642,13 +651,14 @@ impl GStreamerPlayer {
                 } else {
                     None
                 };
-                let mut inner = inner_clone.lock().unwrap();
                 let mut updated_metadata = None;
                 if let Some(ref mut metadata) = inner.last_metadata {
                     metadata.duration = duration;
                     updated_metadata = Some(metadata.clone());
                 }
                 if updated_metadata.is_some() {
+                    gst_info!(inner.cat, obj: &inner.player, "Duration updated: {:?}",
+                              updated_metadata);
                     observers
                         .lock()
                         .unwrap()
