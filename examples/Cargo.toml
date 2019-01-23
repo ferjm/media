@@ -14,7 +14,7 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 servo-media = { path = "../servo-media" }
-webrender = { git = "https://github.com/servo/webrender/" }
+webrender = { git = "https://github.com/servo/webrender/", rev = "c939a61b" }
 websocket = "0.20"
 ipc-channel = "0.11"
 

@@ -449,7 +449,7 @@ dependencies = [
  "serde_json 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
  "servo-media 0.1.0",
  "time 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "webrender 0.57.2 (git+https://github.com/servo/webrender/)",
+ "webrender 0.57.2 (git+https://github.com/servo/webrender/?rev=c939a61b)",
  "websocket 0.20.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "winit 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2211,7 +2211,7 @@ dependencies = [
 [[package]]
 name = "webrender"
 version = "0.57.2"
-source = "git+https://github.com/servo/webrender/#c939a61b83bcc9dc10742977704793e9a85b3858"
+source = "git+https://github.com/servo/webrender/?rev=c939a61b#c939a61b83bcc9dc10742977704793e9a85b3858"
 dependencies = [
  "app_units 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2234,13 +2234,13 @@ dependencies = [
  "smallvec 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thread_profiler 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "webrender_api 0.57.2 (git+https://github.com/servo/webrender/)",
+ "webrender_api 0.57.2 (git+https://github.com/servo/webrender/?rev=c939a61b)",
 ]
 
 [[package]]
 name = "webrender_api"
 version = "0.57.2"
-source = "git+https://github.com/servo/webrender/#c939a61b83bcc9dc10742977704793e9a85b3858"
+source = "git+https://github.com/servo/webrender/?rev=c939a61b#c939a61b83bcc9dc10742977704793e9a85b3858"
 dependencies = [
  "app_units 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2617,8 +2617,8 @@ dependencies = [
 "checksum wayland-protocols 0.21.4 (registry+https://github.com/rust-lang/crates.io-index)" = "d3f6cebb98963f028d397e9bad2acf9d3b2f6b76fae65aea191edd9e7c0df88c"
 "checksum wayland-scanner 0.21.4 (registry+https://github.com/rust-lang/crates.io-index)" = "f1927ee62e4e149c010dc9eca8ca47e238416cd6f45f688eb9f8a8e9c3794c30"
 "checksum wayland-sys 0.21.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ca41ed78a12256f81df6f53fcbe4503213ba442e02cdad3c9c888a64a668eaf4"
-"checksum webrender 0.57.2 (git+https://github.com/servo/webrender/)" = "<none>"
-"checksum webrender_api 0.57.2 (git+https://github.com/servo/webrender/)" = "<none>"
+"checksum webrender 0.57.2 (git+https://github.com/servo/webrender/?rev=c939a61b)" = "<none>"
+"checksum webrender_api 0.57.2 (git+https://github.com/servo/webrender/?rev=c939a61b)" = "<none>"
 "checksum websocket 0.20.3 (registry+https://github.com/rust-lang/crates.io-index)" = "9234b4e667c19995475227172446884f516ec0963380afa960d962ab9f4c0bfa"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "92c1eb33641e276cfa214a0522acad57be5c56b10cb348b3c5117db75f3ac4b0"
