@@ -1,16 +1,15 @@
-use super::gst_app::{AppSink, AppSinkCallbacks, AppSrc};
-use super::gst_audio;
 use byte_slice_cast::*;
-use gst::buffer::{MappedBuffer, Readable};
+use gst;
 use gst::prelude::*;
-use gst::{self, MessageView};
+use gst_app;
+use gst_audio;
 use servo_media_audio::decoder::{AudioDecoder, AudioDecoderCallbacks};
 use servo_media_audio::decoder::{AudioDecoderError, AudioDecoderOptions};
 use std::io::Cursor;
 use std::io::Read;
 use std::sync::{mpsc, Arc, Mutex};
 
-pub struct GStreamerAudioDecoderProgress(MappedBuffer<Readable>);
+pub struct GStreamerAudioDecoderProgress(gst::buffer::MappedBuffer<gst::buffer::Readable>);
 
 impl AsRef<[f32]> for GStreamerAudioDecoderProgress {
     fn as_ref(&self) -> &[f32] {
@@ -65,7 +64,7 @@ impl AudioDecoder for GStreamerAudioDecoder {
             return callbacks.error(AudioDecoderError::Backend(e.to_string()));
         }
 
-        let appsrc = appsrc.downcast::<AppSrc>().unwrap();
+        let appsrc = appsrc.downcast::<gst_app::AppSrc>().unwrap();
 
         let options = options.unwrap_or_default();
 
@@ -187,13 +186,13 @@ impl AudioDecoder for GStreamerAudioDecoder {
                         let sink = gst::ElementFactory::make("appsink", None).ok_or(
                             AudioDecoderError::Backend("appsink creation failed".to_owned()),
                         )?;
-                        let appsink = sink.clone().dynamic_cast::<AppSink>().unwrap();
+                        let appsink = sink.clone().dynamic_cast::<gst_app::AppSink>().unwrap();
                         sink.set_property("sync", &false.to_value())
                             .map_err(|e| AudioDecoderError::Backend(e.to_string()))?;
 
                         let callbacks_ = callbacks.clone();
                         appsink.set_callbacks(
-                            AppSinkCallbacks::new()
+                            gst_app::AppSinkCallbacks::new()
                                 .new_sample(move |appsink| {
                                     let sample =
                                         appsink.pull_sample().ok_or(gst::FlowError::Eos)?;
@@ -328,6 +327,8 @@ impl AudioDecoder for GStreamerAudioDecoder {
 
         let callbacks_ = callbacks.clone();
         bus.set_sync_handler(move |_, msg| {
+            use gst::MessageView;
+
             match msg.view() {
                 MessageView::Error(e) => {
                     callbacks_.error(AudioDecoderError::Backend(

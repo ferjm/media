@@ -1,12 +1,12 @@
 use glib;
-use glib::*;
-use gst::GenericFormattedValue::Percent;
-use gst::{self, ElementExtManual};
-use gst_app::{self, AppSrcCallbacks, AppStreamType};
+use glib::prelude::*;
+use gst;
+use gst::prelude::*;
+use gst_app;
 use gst_gl;
 use gst_player;
-use gst_player::{PlayerMediaInfo, PlayerStreamInfoExt};
-use gst_video::{VideoFrame, VideoInfo};
+use gst_player::prelude::*;
+use gst_video;
 use ipc_channel::ipc::IpcSender;
 use servo_media_player::frame::{Frame, FrameRenderer};
 use servo_media_player::metadata::Metadata;
@@ -26,9 +26,9 @@ fn frame_from_sample(sample: &gst::Sample) -> Result<Frame, ()> {
     let buffer = sample.get_buffer().ok_or_else(|| ())?;
     let info = sample
         .get_caps()
-        .and_then(|caps| VideoInfo::from_caps(caps.as_ref()))
+        .and_then(|caps| gst_video::VideoInfo::from_caps(caps.as_ref()))
         .ok_or_else(|| ())?;
-    let frame = VideoFrame::from_buffer_readable(buffer, &info).or_else(|_| Err(()))?;
+    let frame = gst_video::VideoFrame::from_buffer_readable(buffer, &info).or_else(|_| Err(()))?;
     let data = frame.plane_data(0).ok_or_else(|| ())?;
 
     Ok(Frame::new(
@@ -40,7 +40,7 @@ fn frame_from_sample(sample: &gst::Sample) -> Result<Frame, ()> {
     ))
 }
 
-fn metadata_from_media_info(media_info: &PlayerMediaInfo) -> Result<Metadata, ()> {
+fn metadata_from_media_info(media_info: &gst_player::PlayerMediaInfo) -> Result<Metadata, ()> {
     let dur = media_info.get_duration();
     let duration = if dur != gst::ClockTime::none() {
         let mut nanos = dur.nanoseconds().ok_or_else(|| ())?;
@@ -56,7 +56,7 @@ fn metadata_from_media_info(media_info: &PlayerMediaInfo) -> Result<Metadata, ()
 
     let format = media_info
         .get_container_format()
-        .unwrap_or_else(|| GString::from(""))
+        .unwrap_or_else(|| glib::GString::from(""))
         .to_string();
 
     for stream_info in media_info.get_stream_list() {
@@ -65,14 +65,14 @@ fn metadata_from_media_info(media_info: &PlayerMediaInfo) -> Result<Metadata, ()
             "audio" => {
                 let codec = stream_info
                     .get_codec()
-                    .unwrap_or_else(|| GString::from(""))
+                    .unwrap_or_else(|| glib::GString::from(""))
                     .to_string();
                 audio_tracks.push(codec);
             }
             "video" => {
                 let codec = stream_info
                     .get_codec()
-                    .unwrap_or_else(|| GString::from(""))
+                    .unwrap_or_else(|| glib::GString::from(""))
                     .to_string();
                 video_tracks.push(codec);
             }
@@ -110,7 +110,7 @@ struct PlayerInner {
     appsink: gst_app::AppSink,
     input_size: u64,
     rate: f64,
-    stream_type: Option<AppStreamType>,
+    stream_type: Option<gst_app::AppStreamType>,
     last_metadata: Option<Metadata>,
     cat: gst::DebugCategory,
 }
@@ -152,9 +152,9 @@ impl PlayerInner {
 
     pub fn set_stream_type(&mut self, type_: StreamType) -> Result<(), PlayerError> {
         let type_ = match type_ {
-            StreamType::Stream => AppStreamType::Stream,
-            StreamType::Seekable => AppStreamType::Seekable,
-            StreamType::RandomAccess => AppStreamType::RandomAccess,
+            StreamType::Stream => gst_app::AppStreamType::Stream,
+            StreamType::Seekable => gst_app::AppStreamType::Seekable,
+            StreamType::RandomAccess => gst_app::AppStreamType::RandomAccess,
         };
         // Set stream_type to proxy its value, since it
         // could be set by the user before calling .setup().
@@ -197,7 +197,9 @@ impl PlayerInner {
         // if the stream type is set to RandomAccess (i.e. the seek-data
         // callback is received right after pushing the first chunk of data,
         // even if player.seek() is not called).
-        if self.stream_type.is_none() || self.stream_type.unwrap() != AppStreamType::Seekable {
+        if self.stream_type.is_none()
+            || self.stream_type.unwrap() != gst_app::AppStreamType::Seekable
+        {
             return Err(PlayerError::NonSeekableStream);
         }
         if let Some(ref metadata) = self.last_metadata {
@@ -248,13 +250,13 @@ impl PlayerInner {
                     for i in 0..ranges.len() {
                         let start = ranges[i].0;
                         let end = ranges[i].1;
-                        let start = (if let Percent(start) = start {
+                        let start = (if let gst::GenericFormattedValue::Percent(start) = start {
                             start.unwrap()
                         } else {
                             0
                         } * duration.as_secs() as u32
                             / (gst::FORMAT_PERCENT_MAX)) as f64;
-                        let end = (if let Percent(end) = end {
+                        let end = (if let gst::GenericFormattedValue::Percent(end) = end {
                             end.unwrap()
                         } else {
                             0
@@ -462,7 +464,7 @@ impl GStreamerPlayer {
         let flags = pipeline
             .get_property("flags")
             .map_err(|e| PlayerError::Backend(e.to_string()))?;
-        let flags_class = match FlagsClass::new(flags.type_()) {
+        let flags_class = match glib::FlagsClass::new(flags.type_()) {
             Some(flags) => flags,
             None => {
                 return Err(PlayerError::Backend(
@@ -512,7 +514,7 @@ impl GStreamerPlayer {
         // The estimated version for the fix is 1.14.5 / 1.15.1.
         // https://github.com/servo/servo/issues/22010#issuecomment-432599657
         player
-            .set_property("uri", &Value::from("servosrc://"))
+            .set_property("uri", &glib::Value::from("servosrc://"))
             .map_err(|e| PlayerError::Backend(e.to_string()))?;
 
         *self.inner.borrow_mut() = Some(Arc::new(Mutex::new(PlayerInner {
@@ -731,7 +733,7 @@ impl GStreamerPlayer {
                 let observers__ = observers.clone();
                 let observers___ = observers.clone();
                 servosrc.set_callbacks(
-                    AppSrcCallbacks::new()
+                    gst_app::AppSrcCallbacks::new()
                         .need_data(move |_, _| {
                             // We block the caller of the setup method until we get
                             // the first need-data signal, so we ensure that we

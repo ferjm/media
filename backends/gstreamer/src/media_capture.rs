@@ -1,7 +1,6 @@
 use crate::media_stream::{GStreamerMediaStream, StreamType};
-use gst::caps::{Builder, Caps};
-use gst::{DeviceExt, DeviceMonitor, DeviceMonitorExt, DeviceMonitorExtManual};
-use gst::{Fraction, FractionRange, IntRange, List};
+use gst;
+use gst::prelude::*;
 use std::i32;
 
 pub enum Constrain<T> {
@@ -15,17 +14,17 @@ impl<'a> Constrain<u64> {
         name: &str,
         min: u64,
         max: u64,
-        builder: Builder<'a>,
-    ) -> Option<Builder<'a>> {
+        builder: gst::caps::Builder<'a>,
+    ) -> Option<gst::caps::Builder<'a>> {
         match self {
             Constrain::Value(v) => Some(builder.field(name, v)),
             Constrain::Range(r) => {
                 let min = into_i32(r.min.unwrap_or(min));
                 let max = into_i32(r.max.unwrap_or(max));
-                let range = IntRange::<i32>::new(min, max);
+                let range = gst::IntRange::<i32>::new(min, max);
                 if let Some(ideal) = r.ideal {
                     let ideal = into_i32(ideal);
-                    let array = List::new(&[&ideal, &range]);
+                    let array = gst::List::new(&[&ideal, &range]);
                     Some(builder.field(name, &array))
                 } else {
                     Some(builder.field(name, &range))
@@ -49,21 +48,23 @@ impl<'a> Constrain<f64> {
         name: &str,
         min: i32,
         max: i32,
-        builder: Builder<'a>,
-    ) -> Option<Builder<'a>> {
+        builder: gst::caps::Builder<'a>,
+    ) -> Option<gst::caps::Builder<'a>> {
         match self {
-            Constrain::Value(v) => Some(builder.field("name", &Fraction::approximate_f64(*v)?)),
+            Constrain::Value(v) => {
+                Some(builder.field("name", &gst::Fraction::approximate_f64(*v)?))
+            }
             Constrain::Range(r) => {
                 let min = r
                     .min
-                    .and_then(|v| Fraction::approximate_f64(v))
-                    .unwrap_or(Fraction::new(min, 1));
+                    .and_then(|v| gst::Fraction::approximate_f64(v))
+                    .unwrap_or(gst::Fraction::new(min, 1));
                 let max = r
                     .max
-                    .and_then(|v| Fraction::approximate_f64(v))
-                    .unwrap_or(Fraction::new(max, 1));
-                let range = FractionRange::new(min, max);
-                if let Some(ideal) = r.ideal.and_then(|v| Fraction::approximate_f64(v)) {
+                    .and_then(|v| gst::Fraction::approximate_f64(v))
+                    .unwrap_or(gst::Fraction::new(max, 1));
+                let range = gst::FractionRange::new(min, max);
+                if let Some(ideal) = r.ideal.and_then(|v| gst::Fraction::approximate_f64(v)) {
                     let array = gst::List::new(&[&ideal, &range]);
                     Some(builder.field(name, &array))
                 } else {
@@ -97,7 +98,7 @@ pub struct MediaTrackConstraintSet {
 // TODO(Manishearth): Should support a set of constraints
 impl MediaTrackConstraintSet {
     fn into_caps(self, format: &str) -> Option<gst::Caps> {
-        let mut builder = Caps::builder(format);
+        let mut builder = gst::Caps::builder(format);
         if let Some(w) = self.width {
             builder = w.add_to_caps("width", 0, 1000000, builder)?;
         }
@@ -118,13 +119,13 @@ impl MediaTrackConstraintSet {
 }
 
 struct GstMediaDevices {
-    monitor: DeviceMonitor,
+    monitor: gst::DeviceMonitor,
 }
 
 impl GstMediaDevices {
     pub fn new() -> Self {
         Self {
-            monitor: DeviceMonitor::new(),
+            monitor: gst::DeviceMonitor::new(),
         }
     }
 

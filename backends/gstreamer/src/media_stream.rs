@@ -1,5 +1,6 @@
-use glib::ObjectExt;
-use gst::{self, ElementExt, GObjectExtManualGst, GstBinExt, GstBinExtManual};
+use glib::prelude::*;
+use gst;
+use gst::prelude::*;
 use servo_media_webrtc::{MediaOutput, MediaStream};
 use std::any::Any;
 
