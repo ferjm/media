@@ -34,6 +34,7 @@ mod player_wrapper;
 struct App {
     frame_queue: Vec<Frame>,
     current_frame: Option<Frame>,
+    image_key: Option<ImageKey>,
 }
 
 impl App {
@@ -41,6 +42,7 @@ impl App {
         Self {
             frame_queue: Vec::new(),
             current_frame: None,
+            image_key: None,
         }
     }
 }
@@ -63,14 +65,44 @@ impl ui::Example for App {
         };
         let width = frame.get_width();
         let height = frame.get_height();
+
+        if self.image_key.is_some() && self.current_frame.is_some() {
+            let old_frame = self.current_frame.take().unwrap();
+            let old_width = old_frame.get_width();
+            let old_height = old_frame.get_height();
+            if (width != old_width) || (height != old_height) {
+                txn.delete_image(self.image_key.unwrap());
+                self.image_key = None;
+            }
+        }
+
         let mut image_descriptor =
             ImageDescriptor::new(width, height, ImageFormat::BGRA8, false, false);
         image_descriptor.stride = frame.get_stride();
         image_descriptor.offset = frame.get_offset();
+
         let image_data = ImageData::new_shared(frame.get_data().clone());
+
         self.current_frame = Some(frame);
-        let image_key = api.generate_image_key();
-        txn.add_image(image_key, image_descriptor, image_data, None);
+
+        if self.image_key.is_none() {
+            self.image_key = Some(api.generate_image_key());
+            txn.add_image(
+                self.image_key.clone().unwrap(),
+                image_descriptor,
+                image_data,
+                None,
+            );
+        } else {
+            // TODO: fix tearing
+            txn.update_image(
+                self.image_key.clone().unwrap(),
+                image_descriptor,
+                image_data,
+                &DirtyRect::All,
+            );
+        }
+
         let bounds = (0, 0).to(width as i32, height as i32);
         let info = LayoutPrimitiveInfo::new(bounds);
         builder.push_stacking_context(
@@ -90,7 +122,7 @@ impl ui::Example for App {
             LayoutSize::zero(),
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
-            image_key,
+            self.image_key.clone().unwrap(),
             ColorF::WHITE,
         );
         builder.pop_stacking_context();
