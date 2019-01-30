@@ -31,9 +31,55 @@ mod ui;
 #[path = "player_wrapper.rs"]
 mod player_wrapper;
 
+struct FrameQueue {
+    prev_frame: Option<Frame>,
+    cur_frame: Option<Frame>,
+    repaint: bool,
+}
+
+impl FrameQueue {
+    fn new() -> Self {
+        Self {
+            prev_frame: None,
+            cur_frame: None,
+            repaint: false,
+        }
+    }
+
+    fn add(&mut self, frame: Frame) {
+        self.cur_frame = Some(frame);
+        self.repaint = true;
+    }
+
+    fn get(&mut self) -> Option<Frame> {
+        self.cur_frame
+            .take()
+            .and_then(|frame| {
+                self.repaint = false;
+                self.prev_frame = Some(frame.clone());
+                Some(frame)
+            })
+            .or_else(|| self.prev())
+    }
+
+    fn prev(&mut self) -> Option<Frame> {
+        self.prev_frame.take().and_then(|frame| {
+            self.prev_frame = Some(frame.clone());
+            Some(frame)
+        })
+    }
+
+    fn needs_repaint(&self) -> bool {
+        self.repaint
+    }
+
+    fn is_empty(&self) -> bool {
+        self.cur_frame.is_none() && self.prev_frame.is_none()
+    }
+}
+
 struct App {
-    frame_queue: Vec<Frame>,
-    current_frame: Option<Frame>,
+    frame_queue: Mutex<FrameQueue>,
     image_key: Option<ImageKey>,
     use_gl: bool,
 }
@@ -41,8 +87,7 @@ struct App {
 impl App {
     fn new() -> Self {
         Self {
-            frame_queue: Vec::new(),
-            current_frame: None,
+            frame_queue: Mutex::new(FrameQueue::new()),
             image_key: None,
             use_gl: false,
         }
@@ -57,24 +102,23 @@ impl ui::Example for App {
         builder: &mut DisplayListBuilder,
         txn: &mut Transaction,
     ) {
-        let frame = if self.frame_queue.is_empty() {
-            if self.current_frame.is_none() {
-                return;
-            }
-            self.current_frame.take().unwrap()
-        } else {
-            self.frame_queue.pop().unwrap()
-        };
+        if self.frame_queue.lock().unwrap().is_empty() {
+            return; /* we are not ready yet, sir */
+        }
+
+        let frame = self.frame_queue.lock().unwrap().get().unwrap();
+
         let width = frame.get_width();
         let height = frame.get_height();
 
-        if self.image_key.is_some() && self.current_frame.is_some() {
-            let old_frame = self.current_frame.take().unwrap();
-            let old_width = old_frame.get_width();
-            let old_height = old_frame.get_height();
-            if (width != old_width) || (height != old_height) {
-                txn.delete_image(self.image_key.unwrap());
-                self.image_key = None;
+        if self.image_key.is_some() {
+            if let Some(old_frame) = self.frame_queue.lock().unwrap().prev() {
+                let old_width = old_frame.get_width();
+                let old_height = old_frame.get_height();
+                if (width != old_width) || (height != old_height) {
+                    txn.delete_image(self.image_key.unwrap());
+                    self.image_key = None;
+                }
             }
         }
 
@@ -102,7 +146,6 @@ impl ui::Example for App {
                 None,
             );
         } else if !self.use_gl {
-            // TODO: fix tearing
             txn.update_image(
                 self.image_key.clone().unwrap(),
                 image_descriptor,
@@ -145,7 +188,7 @@ impl ui::Example for App {
     }
 
     fn needs_repaint(&self) -> bool {
-        !self.frame_queue.is_empty()
+        self.frame_queue.lock().unwrap().needs_repaint()
     }
 
     fn get_image_handlers(
@@ -167,7 +210,7 @@ impl ui::Example for App {
 
 impl FrameRenderer for App {
     fn render(&mut self, frame: Frame) {
-        self.frame_queue.push(frame);
+        self.frame_queue.lock().unwrap().add(frame)
     }
 }
 
