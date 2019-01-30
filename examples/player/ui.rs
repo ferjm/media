@@ -57,6 +57,7 @@ pub trait HandyDandyRectBuilder {
     fn to(&self, x2: i32, y2: i32) -> LayoutRect;
     fn by(&self, w: i32, h: i32) -> LayoutRect;
 }
+
 // Allows doing `(x, y).to(x2, y2)` or `(x, y).by(width, height)` with i32
 // values to build a f32 LayoutRect
 impl HandyDandyRectBuilder for (i32, i32) {
@@ -102,11 +103,14 @@ pub trait Example {
         (None, None)
     }
     fn draw_custom(&self, _gl: &gl::Gl) {}
+
+    fn use_gl(&mut self, _use_gl: bool) {}
 }
 
 pub fn main_wrapper<E: Example + FrameRenderer>(
     example: Arc<Mutex<E>>,
     path: &Path,
+    use_gl: bool,
     options: Option<webrender::RendererOptions>,
 ) {
     env_logger::init();
@@ -193,7 +197,9 @@ pub fn main_wrapper<E: Example + FrameRenderer>(
     txn.generate_frame();
     api.send_transaction(document_id, txn);
 
-    let player_wrapper = PlayerWrapper::new(path, window.context());
+    let context = if use_gl { Some(window.context()) } else { None };
+    let player_wrapper = PlayerWrapper::new(path, context);
+    example.lock().unwrap().use_gl(player_wrapper.use_gl());
     player_wrapper.register_frame_renderer(example.clone());
 
     println!("Entering event loop");

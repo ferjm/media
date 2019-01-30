@@ -17,16 +17,11 @@ use std::thread::Builder;
 pub struct PlayerWrapper {
     player: Arc<Mutex<Box<Player>>>,
     shutdown: Arc<AtomicBool>,
+    use_gl: bool,
 }
 
 impl PlayerWrapper {
-    pub fn new(path: &Path, context: &glutin::Context) -> Self {
-        let servo_media = ServoMedia::get().unwrap();
-        let player = Arc::new(Mutex::new(servo_media.create_player()));
-
-        let file = File::open(&path).unwrap();
-        let metadata = file.metadata().unwrap();
-
+    fn set_gl_params(player: Arc<Mutex<Box<Player>>>, context: &glutin::Context) -> bool {
         match unsafe { context.raw_handle() } {
             RawHandle::Egl(egl_context) => {
                 let gl_context = GlContext::Egl(egl_context as usize);
@@ -35,11 +30,26 @@ impl PlayerWrapper {
                         .lock()
                         .unwrap()
                         .set_gl_params(gl_context, gl_display as usize);
+                    return true;
                 }
+                false
             }
-            RawHandle::Glx(_) => {}
-        };
+            RawHandle::Glx(_) => false,
+        }
+    }
 
+    pub fn new(path: &Path, context: Option<&glutin::Context>) -> Self {
+        let servo_media = ServoMedia::get().unwrap();
+        let player = Arc::new(Mutex::new(servo_media.create_player()));
+
+        let player_ = player.clone();
+        let use_gl = context
+            .and_then(move |ctxt| Some(PlayerWrapper::set_gl_params(player_, ctxt)))
+            .or_else(|| Some(false))
+            .unwrap();
+
+        let file = File::open(&path).unwrap();
+        let metadata = file.metadata().unwrap();
         player
             .lock()
             .unwrap()
@@ -120,12 +130,20 @@ impl PlayerWrapper {
 
         player.lock().unwrap().play().unwrap();
 
-        PlayerWrapper { player, shutdown }
+        PlayerWrapper {
+            player,
+            shutdown,
+            use_gl,
+        }
     }
 
     pub fn shutdown(&self) {
         self.player.lock().unwrap().stop().unwrap();
         self.shutdown.store(true, Ordering::Relaxed);
+    }
+
+    pub fn use_gl(&self) -> bool {
+        self.use_gl
     }
 
     pub fn register_frame_renderer(&self, renderer: Arc<Mutex<FrameRenderer>>) {
