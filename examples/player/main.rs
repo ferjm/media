@@ -31,6 +31,87 @@ mod ui;
 #[path = "player_wrapper.rs"]
 mod player_wrapper;
 
+struct FrameProvider {
+    default_texture_id: gl::GLuint,
+    frame_queue: Arc<Mutex<FrameQueue>>,
+    cur_frame: Option<Frame>,
+}
+
+impl FrameProvider {
+    fn new(frame_queue: Arc<Mutex<FrameQueue>>, gl: &gl::Gl) -> Self {
+        let texture_id = gl.gen_textures(1)[0];
+
+        gl.bind_texture(gl::TEXTURE_2D, texture_id);
+        gl.tex_parameter_i(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_MAG_FILTER,
+            gl::LINEAR as gl::GLint,
+        );
+        gl.tex_parameter_i(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_MIN_FILTER,
+            gl::LINEAR as gl::GLint,
+        );
+        gl.tex_parameter_i(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_WRAP_S,
+            gl::CLAMP_TO_EDGE as gl::GLint,
+        );
+        gl.tex_parameter_i(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_WRAP_T,
+            gl::CLAMP_TO_EDGE as gl::GLint,
+        );
+        gl.tex_image_2d(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as gl::GLint,
+            100,
+            100,
+            0,
+            gl::BGRA,
+            gl::UNSIGNED_BYTE,
+            None,
+        );
+        gl.bind_texture(gl::TEXTURE_2D, 0);
+
+        Self {
+            default_texture_id: texture_id,
+            frame_queue: frame_queue,
+            cur_frame: None,
+        }
+    }
+}
+
+impl webrender::ExternalImageHandler for FrameProvider {
+    fn lock(
+        &mut self,
+        _key: ExternalImageId,
+        _channel_index: u8,
+        _rendering: ImageRendering,
+    ) -> webrender::ExternalImage {
+        self.cur_frame = self.frame_queue.lock().unwrap().prev();
+
+        let id = self
+            .cur_frame
+            .take()
+            .and_then(|frame| {
+                self.cur_frame = Some(frame.clone());
+                Some(frame.get_texture_id())
+            })
+            .or_else(|| Some(self.default_texture_id))
+            .unwrap();
+
+        eprint!("/{:?}/", id);
+
+        webrender::ExternalImage {
+            uv: TexelRect::new(0.0, 0.0, 1.0, 1.0),
+            source: webrender::ExternalImageSource::NativeTexture(id),
+        }
+    }
+    fn unlock(&mut self, _key: ExternalImageId, _channel_index: u8) {}
+}
+
 struct FrameQueue {
     prev_frame: Option<Frame>,
     cur_frame: Option<Frame>,
@@ -79,7 +160,7 @@ impl FrameQueue {
 }
 
 struct App {
-    frame_queue: Mutex<FrameQueue>,
+    frame_queue: Arc<Mutex<FrameQueue>>,
     image_key: Option<ImageKey>,
     use_gl: bool,
 }
@@ -87,7 +168,7 @@ struct App {
 impl App {
     fn new() -> Self {
         Self {
-            frame_queue: Mutex::new(FrameQueue::new()),
+            frame_queue: Arc::new(Mutex::new(FrameQueue::new())),
             image_key: None,
             use_gl: false,
         }
@@ -152,10 +233,7 @@ impl ui::Example for App {
                 image_data,
                 &DirtyRect::All,
             );
-        } else
-        /* if self.use_gl */
-        {
-            return;
+        } else {
         }
 
         let bounds = (0, 0).to(width as i32, height as i32);
@@ -193,12 +271,19 @@ impl ui::Example for App {
 
     fn get_image_handlers(
         &self,
-        _gl: &gl::Gl,
+        gl: &gl::Gl,
     ) -> (
         Option<Box<webrender::ExternalImageHandler>>,
         Option<Box<webrender::OutputImageHandler>>,
     ) {
-        (None, None)
+        if !self.use_gl {
+            (None, None)
+        } else {
+            (
+                Some(Box::new(FrameProvider::new(self.frame_queue.clone(), gl))),
+                None,
+            )
+        }
     }
 
     fn draw_custom(&self, _gl: &gl::Gl) {}
