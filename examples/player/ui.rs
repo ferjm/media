@@ -172,6 +172,11 @@ pub fn main_wrapper<E: Example + FrameRenderer>(
     let api = sender.create_api();
     let document_id = api.add_document(framebuffer_size, 0);
 
+    let context = if use_gl { Some(window.context()) } else { None };
+    let player_wrapper = PlayerWrapper::new(path, context);
+    example.lock().unwrap().use_gl(player_wrapper.use_gl());
+    player_wrapper.register_frame_renderer(example.clone());
+
     let (external, output) = example.lock().unwrap().get_image_handlers(&*gl);
 
     if let Some(output_image_handler) = output {
@@ -196,11 +201,6 @@ pub fn main_wrapper<E: Example + FrameRenderer>(
     txn.set_root_pipeline(pipeline_id);
     txn.generate_frame();
     api.send_transaction(document_id, txn);
-
-    let context = if use_gl { Some(window.context()) } else { None };
-    let player_wrapper = PlayerWrapper::new(path, context);
-    example.lock().unwrap().use_gl(player_wrapper.use_gl());
-    player_wrapper.register_frame_renderer(example.clone());
 
     println!("Entering event loop");
     events_loop.run_forever(|global_event| {
