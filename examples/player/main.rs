@@ -31,10 +31,10 @@ mod ui;
 #[path = "player_wrapper.rs"]
 mod player_wrapper;
 
-struct FrameProvider {
+struct FrameProvider<F: Frame> {
     default_texture_id: gl::GLuint,
     frame_queue: Arc<Mutex<FrameQueue>>,
-    cur_frame: Option<Frame>,
+    cur_frame: Option<F>,
 }
 
 impl FrameProvider {
@@ -112,9 +112,9 @@ impl webrender::ExternalImageHandler for FrameProvider {
     fn unlock(&mut self, _key: ExternalImageId, _channel_index: u8) {}
 }
 
-struct FrameQueue {
-    prev_frame: Option<Frame>,
-    cur_frame: Option<Frame>,
+struct FrameQueue<F: Frame> {
+    prev_frame: Option<F>,
+    cur_frame: Option<F>,
     repaint: bool,
 }
 
@@ -294,7 +294,7 @@ impl ui::Example for App {
 }
 
 impl FrameRenderer for App {
-    fn render(&mut self, frame: Frame) {
+    fn render<F: Frame>(&mut self, frame: F) {
         self.frame_queue.lock().unwrap().add(frame)
     }
 }

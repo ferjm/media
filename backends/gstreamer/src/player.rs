@@ -9,7 +9,7 @@ use gst_player;
 use gst_player::prelude::*;
 use gst_video;
 use ipc_channel::ipc::IpcSender;
-use servo_media_player::frame::{Frame, FrameData, FrameRenderer};
+use servo_media_player::frame::{Frame, FrameRenderer};
 use servo_media_player::metadata::Metadata;
 use servo_media_player::{GlContext, PlaybackState, Player, PlayerError, PlayerEvent, StreamType};
 use source::{register_servo_src, ServoSrc};
@@ -23,38 +23,71 @@ use std::u64;
 
 const MAX_BUFFER_SIZE: i32 = 500 * 1024 * 1024;
 
-fn frame_from_sample(sample: &gst::Sample) -> Result<Frame, ()> {
-    let buffer = sample.get_buffer().ok_or_else(|| ())?;
-    let caps = sample.get_caps().ok_or_else(|| ())?;
-    let info = gst_video::VideoInfo::from_caps(caps.as_ref()).ok_or_else(|| ())?;
-    let is_gltext = caps
-        .get_features(0)
-        .and_then(|features| Some(features.contains(&gst_gl::CAPS_FEATURE_MEMORY_GL_MEMORY)))
-        .ok_or_else(|| ())?;
+#[derive(Clone)]
+pub struct PlayerFrame {
+    info: gst_video::VideoInfo,
+    is_gl: bool,
+    buffer: gst::Buffer,
+}
 
-    if !is_gltext {
-        let frame =
-            gst_video::VideoFrame::from_buffer_readable(buffer, &info).or_else(|_| Err(()))?;
-        let data = frame.plane_data(0).ok_or_else(|| ())?;
+impl PlayerFrame {
+    fn new(sample: &gst::Sample) -> Result<Self, ()> {
+        let buffer = sample.get_buffer().ok_or_else(|| ())?;
+        let caps = sample.get_caps().ok_or_else(|| ())?;
+        let info = gst_video::VideoInfo::from_caps(caps.as_ref()).ok_or_else(|| ())?;
+        let is_gl = caps
+            .get_features(0)
+            .and_then(|features| Some(features.contains(&gst_gl::CAPS_FEATURE_MEMORY_GL_MEMORY)))
+            .ok_or_else(|| ())?;
 
-        Ok(Frame::new(
-            info.width() as i32,
-            info.height() as i32,
-            FrameData::Raw(Arc::new(data.to_vec())),
-            Some(info.stride()[0] as i32),
-            info.offset()[0] as i32,
-        ))
-    } else {
-        let frame =
-            gst_video::VideoFrame::from_buffer_readable_gl(buffer, &info).or_else(|_| Err(()))?;
+        if info.n_planes() != 1 {
+            return Err(());
+        }
 
-        Ok(Frame::new(
-            info.width() as i32,
-            info.height() as i32,
-            FrameData::Texture(frame.get_texture_id(0).unwrap()),
-            Some(info.stride()[0] as i32),
-            info.offset()[0] as i32,
-        ))
+        Ok(Self {
+            info,
+            is_gl,
+            buffer,
+        })
+    }
+}
+
+impl Frame for PlayerFrame {
+    fn get_width(&self) -> i32 {
+        self.info.width() as i32
+    }
+
+    fn get_height(&self) -> i32 {
+        self.info.height() as i32
+    }
+
+    // TODO: return Result<&Arc<Vec<u8>>, ()>
+    fn get_data(&self) -> &Arc<Vec<u8>> {
+        if self.is_gl {
+            panic!();
+        }
+
+        let frame = gst_video::VideoFrame::from_buffer_readable(self.buffer, &self.info).unwrap();
+        let data = frame.plane_data(0).unwrap();
+        &Arc::new(data.to_vec())
+    }
+
+    fn get_texture_id(&self) -> Result<u32, ()> {
+        if !self.is_gl {
+            panic!();
+        }
+
+        let frame = gst_video::VideoFrame::from_buffer_readable_gl(self.buffer, &self.info)
+            .or_else(|_| Err(()))?;
+        frame.get_texture_id(0).ok_or_else(|| ())
+    }
+
+    fn get_stride(&self) -> i32 {
+        self.info.stride()[0] as i32
+    }
+
+    fn get_offset(&self) -> i32 {
+        self.info.offset()[0] as i32
     }
 }
 
@@ -328,10 +361,10 @@ impl FrameRendererList {
     }
 
     fn render(&self, sample: &gst::Sample) -> Result<(), ()> {
-        let frame = frame_from_sample(&sample)?;
+        let frame = PlayerFrame::new(&sample)?;
 
         for renderer in &self.renderers {
-            renderer.lock().unwrap().render(frame.clone());
+            FrameRenderer::render(&*renderer.lock().unwrap(), Box::new(frame.clone()))
         }
         Ok(())
     }
