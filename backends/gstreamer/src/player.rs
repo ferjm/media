@@ -9,7 +9,7 @@ use gst_player;
 use gst_player::prelude::*;
 use gst_video;
 use ipc_channel::ipc::IpcSender;
-use servo_media_player::frame::{Frame, FrameRenderer};
+use servo_media_player::frame::{Frame, FrameData, FrameRenderer};
 use servo_media_player::metadata::Metadata;
 use servo_media_player::{GlContext, PlaybackState, Player, PlayerError, PlayerEvent, StreamType};
 use source::{register_servo_src, ServoSrc};
@@ -23,11 +23,23 @@ use std::u64;
 
 const MAX_BUFFER_SIZE: i32 = 500 * 1024 * 1024;
 
+struct GStreamerBuffer {
+    pub info: gst_video::VideoInfo,
+    pub inner: gst::Buffer,
+}
+
+impl FrameData for GStreamerBuffer {
+    fn to_vec(&self) -> Vec<u8> {
+        let frame = gst_video::VideoFrame::from_buffer_readable(self.inner.clone(), &self.info).unwrap();
+        let data = frame.plane_data(0).unwrap();
+        data.to_vec()
+    }
+}
+
 #[derive(Clone)]
 pub struct PlayerFrame {
-    info: gst_video::VideoInfo,
     is_gl: bool,
-    buffer: gst::Buffer,
+    buffer: Arc<GStreamerBuffer>,
 }
 
 impl PlayerFrame {
@@ -45,31 +57,31 @@ impl PlayerFrame {
         }
 
         Ok(Self {
-            info,
             is_gl,
-            buffer,
+            buffer: Arc::new(GStreamerBuffer {
+                info,
+                inner: buffer,
+            }),
         })
     }
 }
 
 impl Frame for PlayerFrame {
     fn get_width(&self) -> i32 {
-        self.info.width() as i32
+        self.buffer.info.width() as i32
     }
 
     fn get_height(&self) -> i32 {
-        self.info.height() as i32
+        self.buffer.info.height() as i32
     }
 
     // TODO: return Result<&Arc<Vec<u8>>, ()>
-    fn get_data(&self) -> &Arc<Vec<u8>> {
+    fn get_data(&self) -> Arc<FrameData> {
         if self.is_gl {
             panic!();
         }
 
-        let frame = gst_video::VideoFrame::from_buffer_readable(self.buffer, &self.info).unwrap();
-        let data = frame.plane_data(0).unwrap();
-        &Arc::new(data.to_vec())
+        self.buffer.clone()
     }
 
     fn get_texture_id(&self) -> Result<u32, ()> {
@@ -77,17 +89,17 @@ impl Frame for PlayerFrame {
             panic!();
         }
 
-        let frame = gst_video::VideoFrame::from_buffer_readable_gl(self.buffer, &self.info)
+        let frame = gst_video::VideoFrame::from_buffer_readable_gl(self.buffer.inner.clone(), &self.buffer.info)
             .or_else(|_| Err(()))?;
         frame.get_texture_id(0).ok_or_else(|| ())
     }
 
     fn get_stride(&self) -> i32 {
-        self.info.stride()[0] as i32
+        self.buffer.info.stride()[0] as i32
     }
 
     fn get_offset(&self) -> i32 {
-        self.info.offset()[0] as i32
+        self.buffer.info.offset()[0] as i32
     }
 }
 

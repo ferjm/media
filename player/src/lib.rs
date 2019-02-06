@@ -75,7 +75,7 @@ pub enum GlContext {
 
 pub trait Player: Send {
     fn register_event_handler(&self, sender: IpcSender<PlayerEvent>);
-    fn register_frame_renderer(&self, renderer: Arc<Mutex<Box<frame::FrameRenderer>>>);
+    fn register_frame_renderer(&self, renderer: Arc<Mutex<frame::FrameRenderer>>);
     fn play(&self) -> Result<(), PlayerError>;
     fn pause(&self) -> Result<(), PlayerError>;
     fn stop(&self) -> Result<(), PlayerError>;
@@ -96,7 +96,7 @@ pub struct DummyPlayer {}
 
 impl Player for DummyPlayer {
     fn register_event_handler(&self, _: IpcSender<PlayerEvent>) {}
-    fn register_frame_renderer(&self, _: Arc<Mutex<Box<frame::FrameRenderer>>>) {}
+    fn register_frame_renderer(&self, _: Arc<Mutex<frame::FrameRenderer>>) {}
 
     fn play(&self) -> Result<(), PlayerError> {
         Ok(())
