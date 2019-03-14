@@ -6,7 +6,7 @@ use gst_app;
 use gst_gl;
 use gst_gl::prelude::*;
 #[cfg(target_os = "linux")]
-use gst_gl_egl::GLDisplayEGL;
+use gst_gl::GLDisplayEGL;
 use gst_player;
 use gst_player::prelude::*;
 use gst_video;

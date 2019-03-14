@@ -1,0 +1,8 @@
+[package]
+name = "gstreamer-gl"
+version = "0.1.0"
+authors = ["The Servo Project Developers"]
+edition = "2018"
+
+[dependencies]
+gstreamer-gl = "0.13"
