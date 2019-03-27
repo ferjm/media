@@ -95,3 +95,7 @@ path = "constant_source.rs"
 [[bin]]
 name = "simple_webrtc"
 path = "simple_webrtc.rs"
+
+[[bin]]
+name = "auto_media_stream"
+path = "auto_media_stream.rs"

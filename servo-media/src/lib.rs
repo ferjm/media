@@ -8,7 +8,7 @@ use std::sync::{self, Arc, Mutex, Once};
 
 use audio::context::{AudioContext, AudioContextOptions};
 use player::Player;
-use streams::{MediaStream, MediaOutput};
+use streams::{AutoMediaStream, MediaStream, MediaStreamCallbacks, MediaOutput};
 use streams::capture::MediaTrackConstraintSet;
 use webrtc::{WebRtcController, WebRtcSignaller};
 
@@ -30,6 +30,8 @@ pub trait Backend: Send + Sync {
     fn create_videoinput_stream(&self, set: MediaTrackConstraintSet) -> Option<Box<MediaStream>>;
     fn create_audio_context(&self, options: AudioContextOptions) -> AudioContext;
     fn create_webrtc(&self, signaller: Box<WebRtcSignaller>) -> WebRtcController;
+
+    fn play_auto_media_stream(&self, callbacks: MediaStreamCallbacks);
 }
 
 impl ServoMedia {

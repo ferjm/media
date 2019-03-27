@@ -17,7 +17,7 @@ use servo_media_audio::decoder::{AudioDecoder, AudioDecoderCallbacks, AudioDecod
 use servo_media_audio::render_thread::AudioRenderThreadMsg;
 use servo_media_audio::sink::{AudioSink, AudioSinkError};
 use servo_media_player::{GlContext, Player, PlayerError, PlayerEvent, StreamType, frame};
-use servo_media_streams::{MediaStream, MediaOutput};
+use servo_media_streams::{AutoMediaStream, MediaStream, MediaStreamCallbacks, MediaOutput};
 use servo_media_streams::capture::MediaTrackConstraintSet;
 use servo_media_webrtc::{
     BundlePolicy, SessionDescription, WebRtcBackend, WebRtcController, WebRtcControllerBackend,
@@ -67,6 +67,8 @@ impl Backend for DummyBackend {
     fn create_webrtc(&self, signaller: Box<WebRtcSignaller>) -> WebRtcController {
         WebRtcController::new::<Self>(signaller)
     }
+
+    fn play_auto_media_stream(&self, _: MediaStreamCallbacks) {}
 }
 
 impl AudioBackend for DummyBackend {

@@ -34,12 +34,13 @@ use servo_media_audio::decoder::AudioDecoder;
 use servo_media_audio::sink::AudioSinkError;
 use servo_media_audio::AudioBackend;
 use servo_media_player::Player;
-use servo_media_streams::{MediaStream, MediaOutput};
+use servo_media_streams::{AutoMediaStream, MediaStream, MediaStreamCallbacks, MediaOutput};
 use servo_media_streams::capture::MediaTrackConstraintSet;
 use servo_media_webrtc::{WebRtcBackend, WebRtcController, WebRtcSignaller};
 
 pub mod audio_decoder;
 pub mod audio_sink;
+pub mod auto_media_stream;
 pub mod media_capture;
 pub mod media_stream;
 pub mod player;
@@ -79,6 +80,10 @@ impl Backend for GStreamerBackend {
 
     fn create_videoinput_stream(&self, set: MediaTrackConstraintSet) -> Option<Box<MediaStream>> {
         media_capture::create_videoinput_stream(set).map(|s| Box::new(s) as Box<MediaStream>)
+    }
+
+    fn play_auto_media_stream(&self, callbacks: MediaStreamCallbacks) {
+        auto_media_stream::GStreamerAutoMediaStream::play(callbacks);
     }
 }
 
