@@ -45,7 +45,7 @@ use servo_media_audio::context::{AudioContext, AudioContextOptions};
 use servo_media_audio::decoder::AudioDecoder;
 use servo_media_audio::sink::AudioSinkError;
 use servo_media_audio::AudioBackend;
-use servo_media_player::{FrameRenderer, Player, PlayerEvent, StreamType};
+use servo_media_player::{FrameRenderer, Player, PlayerError, PlayerEvent, StreamType};
 use servo_media_streams::capture::MediaTrackConstraintSet;
 use servo_media_streams::registry::MediaStreamId;
 use servo_media_streams::MediaOutput;
@@ -64,12 +64,9 @@ impl Backend for GStreamerBackend {
         stream_type: StreamType,
         event_handler: IpcSender<PlayerEvent>,
         renderer: Arc<Mutex<FrameRenderer>>,
-    ) -> Box<Player> {
-        Box::new(player::GStreamerPlayer::new(
-            stream_type,
-            event_handler,
-            renderer,
-        ))
+    ) -> Result<Box<Player>, PlayerError> {
+        let player = player::GStreamerPlayer::new(stream_type, event_handler, renderer)?;
+        Ok(Box::new(player))
     }
 
     fn create_audio_context(&self, options: AudioContextOptions) -> AudioContext {

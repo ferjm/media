@@ -70,8 +70,8 @@ impl Backend for DummyBackend {
         _: StreamType,
         _: IpcSender<PlayerEvent>,
         _: Arc<Mutex<FrameRenderer>>,
-    ) -> Box<Player> {
-        Box::new(DummyPlayer)
+    ) -> Result<Box<Player>, PlayerError> {
+        Ok(Box::new(DummyPlayer))
     }
 
     fn create_audio_context(&self, options: AudioContextOptions) -> AudioContext {

@@ -56,11 +56,11 @@ impl PlayerWrapper {
     ) -> Self {
         let servo_media = ServoMedia::get().unwrap();
         let (sender, receiver) = ipc::channel().unwrap();
-        let player = Arc::new(Mutex::new(servo_media.create_player(
-            StreamType::Seekable,
-            sender,
-            renderer,
-        )));
+        let player = Arc::new(Mutex::new(
+            servo_media
+                .create_player(StreamType::Seekable, sender, renderer)
+                .unwrap(),
+        ));
         let use_gl = if let Some(win) = window {
             PlayerWrapper::set_gl_params(&player, win).is_ok()
         } else {

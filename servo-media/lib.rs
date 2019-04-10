@@ -8,7 +8,7 @@ use std::sync::{self, Arc, Mutex, Once};
 
 use audio::context::{AudioContext, AudioContextOptions};
 use ipc_channel::ipc::IpcSender;
-use player::{FrameRenderer, Player, PlayerEvent, StreamType};
+use player::{FrameRenderer, Player, PlayerError, PlayerEvent, StreamType};
 use streams::capture::MediaTrackConstraintSet;
 use streams::registry::MediaStreamId;
 use streams::MediaOutput;
@@ -29,7 +29,7 @@ pub trait Backend: Send + Sync {
         stream_type: StreamType,
         event_handler: IpcSender<PlayerEvent>,
         renderer: Arc<Mutex<FrameRenderer>>,
-    ) -> Box<Player>;
+    ) -> Result<Box<Player>, PlayerError>;
     fn create_audiostream(&self) -> MediaStreamId;
     fn create_videostream(&self) -> MediaStreamId;
     fn create_stream_output(&self) -> Box<MediaOutput>;

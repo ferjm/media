@@ -323,8 +323,12 @@ impl PlayerInner {
 }
 
 pub struct GStreamerPlayer {
+    /// Private wrapper around GstPlayer.
     inner: RefCell<Option<Arc<Mutex<PlayerInner>>>>,
+    /// Player events listener.
     observer: Arc<Mutex<IpcSender<PlayerEvent>>>,
+    /// Implementer of the FrameRenderer trait in charge of
+    /// painting the frames produced by the Player.
     renderer: Arc<Mutex<FrameRenderer>>,
     /// Indicates whether the setup was succesfully performed and
     /// we are ready to consume a/v data.
@@ -340,8 +344,8 @@ impl GStreamerPlayer {
         stream_type: StreamType,
         event_handler: IpcSender<PlayerEvent>,
         renderer: Arc<Mutex<FrameRenderer>>,
-    ) -> GStreamerPlayer {
-        Self {
+    ) -> Result<GStreamerPlayer, PlayerError> {
+        let player = GStreamerPlayer {
             inner: RefCell::new(None),
             observer: Arc::new(Mutex::new(event_handler)),
             renderer,
@@ -349,91 +353,13 @@ impl GStreamerPlayer {
             gl_context: RefCell::new(None),
             gl_display: RefCell::new(None),
             stream_type,
-        }
-    }
-
-    fn set_bus_sync_handler(&self, pipeline: &gst::Element) -> Result<(), PlayerError> {
-        let bus = pipeline.get_bus().expect("pipeline without bus");
-
-        let gl_context = self.gl_context.replace(None).unwrap();
-        let gl_display = self.gl_display.replace(None).unwrap();
-
-        bus.set_sync_handler(move |_, msg| {
-            match msg.view() {
-                gst::MessageView::NeedContext(ctxt) => {
-                    if let Some(el) = msg.get_src().map(|s| s.downcast::<gst::Element>().unwrap()) {
-                        let context_type = ctxt.get_context_type();
-                        if context_type == *gst_gl::GL_DISPLAY_CONTEXT_TYPE {
-                            let context = gst::Context::new(context_type, true);
-                            context.set_gl_display(&gl_display);
-                            el.set_context(&context);
-                        } else if context_type == "gst.gl.app_context" {
-                            let mut context = gst::Context::new(context_type, true);
-                            let s = context.get_mut().unwrap().get_mut_structure();
-                            s.set_value("context", gl_context.to_send_value());
-                            el.set_context(&context);
-                        }
-                    }
-                }
-                _ => (),
-            }
-
-            gst::BusSyncReply::Pass
-        });
-
-        Ok(())
-    }
-
-    fn setup_video_sink(
-        &self,
-        player: &gst_player::Player,
-    ) -> Result<gst_app::AppSink, PlayerError> {
-        let pipeline = player.get_pipeline();
-
-        let appsink = gst::ElementFactory::make("appsink", None)
-            .ok_or(PlayerError::Backend("appsink creation failed".to_owned()))?
-            .dynamic_cast::<gst_app::AppSink>()
-            .unwrap();
-
-        if self.gl_context.borrow().is_some() {
-            let glsink = gst::ElementFactory::make("glsinkbin", None)
-                .ok_or(PlayerError::Backend("glsinkbin creation failed".to_owned()))?;
-
-            let caps = gst::Caps::builder("video/x-raw")
-                .features(&[&gst_gl::CAPS_FEATURE_MEMORY_GL_MEMORY])
-                .field("format", &gst_video::VideoFormat::Rgba.to_string())
-                .field("texture-target", &"2D")
-                .build();
-            appsink.set_caps(&caps);
-
-            glsink
-                .set_property("sink", &appsink)
-                .expect("glsinkbin doesn't have expected 'sink' property");
-
-            pipeline
-                .set_property("video-sink", &glsink)
-                .expect("playbin doesn't have expected 'video-sink' property");
-
-            self.set_bus_sync_handler(&pipeline)?;
-        } else {
-            let caps = gst::Caps::builder("video/x-raw")
-                .field("format", &gst_video::VideoFormat::Bgra.to_string())
-                .field("pixel-aspect-ratio", &gst::Fraction::from((1, 1)))
-                .build();
-            appsink.set_caps(&caps);
-
-            pipeline
-                .set_property("video-sink", &appsink)
-                .expect("playbin doesn't have expected 'video-sink' property");
         };
-
-        Ok(appsink)
+        player.setup()?;
+        Ok(player)
     }
 
     fn setup(&self) -> Result<(), PlayerError> {
-        if self.inner.borrow().is_some() {
-            return Ok(());
-        }
+        debug_assert!(self.inner.borrow().is_none());
 
         // Check that we actually have the elements that we
         // need to make this work.
@@ -823,12 +749,89 @@ impl GStreamerPlayer {
         glib::signal::signal_handler_disconnect(&inner.lock().unwrap().player, error_handler_id);
         result
     }
+
+    fn set_bus_sync_handler(&self, pipeline: &gst::Element) -> Result<(), PlayerError> {
+        let bus = pipeline.get_bus().expect("pipeline without bus");
+
+        let gl_context = self.gl_context.replace(None).unwrap();
+        let gl_display = self.gl_display.replace(None).unwrap();
+
+        bus.set_sync_handler(move |_, msg| {
+            match msg.view() {
+                gst::MessageView::NeedContext(ctxt) => {
+                    if let Some(el) = msg.get_src().map(|s| s.downcast::<gst::Element>().unwrap()) {
+                        let context_type = ctxt.get_context_type();
+                        if context_type == *gst_gl::GL_DISPLAY_CONTEXT_TYPE {
+                            let context = gst::Context::new(context_type, true);
+                            context.set_gl_display(&gl_display);
+                            el.set_context(&context);
+                        } else if context_type == "gst.gl.app_context" {
+                            let mut context = gst::Context::new(context_type, true);
+                            let s = context.get_mut().unwrap().get_mut_structure();
+                            s.set_value("context", gl_context.to_send_value());
+                            el.set_context(&context);
+                        }
+                    }
+                }
+                _ => (),
+            }
+
+            gst::BusSyncReply::Pass
+        });
+
+        Ok(())
+    }
+
+    fn setup_video_sink(
+        &self,
+        player: &gst_player::Player,
+    ) -> Result<gst_app::AppSink, PlayerError> {
+        let pipeline = player.get_pipeline();
+
+        let appsink = gst::ElementFactory::make("appsink", None)
+            .ok_or(PlayerError::Backend("appsink creation failed".to_owned()))?
+            .dynamic_cast::<gst_app::AppSink>()
+            .unwrap();
+
+        if self.gl_context.borrow().is_some() {
+            let glsink = gst::ElementFactory::make("glsinkbin", None)
+                .ok_or(PlayerError::Backend("glsinkbin creation failed".to_owned()))?;
+
+            let caps = gst::Caps::builder("video/x-raw")
+                .features(&[&gst_gl::CAPS_FEATURE_MEMORY_GL_MEMORY])
+                .field("format", &gst_video::VideoFormat::Rgba.to_string())
+                .field("texture-target", &"2D")
+                .build();
+            appsink.set_caps(&caps);
+
+            glsink
+                .set_property("sink", &appsink)
+                .expect("glsinkbin doesn't have expected 'sink' property");
+
+            pipeline
+                .set_property("video-sink", &glsink)
+                .expect("playbin doesn't have expected 'video-sink' property");
+
+            self.set_bus_sync_handler(&pipeline)?;
+        } else {
+            let caps = gst::Caps::builder("video/x-raw")
+                .field("format", &gst_video::VideoFormat::Bgra.to_string())
+                .field("pixel-aspect-ratio", &gst::Fraction::from((1, 1)))
+                .build();
+            appsink.set_caps(&caps);
+
+            pipeline
+                .set_property("video-sink", &appsink)
+                .expect("playbin doesn't have expected 'video-sink' property");
+        };
+
+        Ok(appsink)
+    }
 }
 
 macro_rules! inner_player_proxy {
     ($fn_name:ident, $return_type:ty) => (
         fn $fn_name(&self) -> Result<$return_type, PlayerError> {
-            self.setup()?;
             let inner = self.inner.borrow();
             let mut inner = inner.as_ref().unwrap().lock().unwrap();
             inner.$fn_name()
@@ -837,7 +840,6 @@ macro_rules! inner_player_proxy {
 
     ($fn_name:ident, $arg1:ident, $arg1_type:ty) => (
         fn $fn_name(&self, $arg1: $arg1_type) -> Result<(), PlayerError> {
-            self.setup()?;
             let inner = self.inner.borrow();
             let mut inner = inner.as_ref().unwrap().lock().unwrap();
             inner.$fn_name($arg1)

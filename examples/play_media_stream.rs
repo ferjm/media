@@ -15,11 +15,11 @@ impl FrameRenderer for DummyRenderer {
 fn run_example(servo_media: Arc<ServoMedia>) {
     let (sender, receiver) = ipc::channel().unwrap();
     let renderer = Arc::new(Mutex::new(DummyRenderer {}));
-    let player = Arc::new(Mutex::new(servo_media.create_player(
-        StreamType::Stream,
-        sender,
-        renderer,
-    )));
+    let player = Arc::new(Mutex::new(
+        servo_media
+            .create_player(StreamType::Stream, sender, renderer)
+            .unwrap(),
+    ));
 
     let audio_stream = servo_media.create_audiostream();
     player.lock().unwrap().set_stream(&audio_stream).unwrap();

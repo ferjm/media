@@ -23,11 +23,11 @@ impl FrameRenderer for DummyRenderer {
 fn run_example(servo_media: Arc<ServoMedia>) {
     let (sender, receiver) = ipc::channel().unwrap();
     let renderer = Arc::new(Mutex::new(DummyRenderer {}));
-    let player = Arc::new(Mutex::new(servo_media.create_player(
-        StreamType::Seekable,
-        sender,
-        renderer,
-    )));
+    let player = Arc::new(Mutex::new(
+        servo_media
+            .create_player(StreamType::Seekable, sender, renderer)
+            .unwrap(),
+    ));
     let args: Vec<_> = env::args().collect();
     let default = "./examples/resources/viper_cut.ogg";
     let filename: &str = if args.len() == 2 {
