@@ -1,4 +1,3 @@
-extern crate ipc_channel;
 #[macro_use]
 extern crate serde_derive;
 extern crate servo_media_streams as streams;
@@ -6,9 +5,9 @@ extern crate servo_media_streams as streams;
 pub mod frame;
 pub mod metadata;
 
-use ipc_channel::ipc::IpcSender;
+pub use frame::{Frame, FrameRenderer};
+pub use metadata::Metadata;
 use std::ops::Range;
-use std::sync::{Arc, Mutex};
 use streams::registry::MediaStreamId;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -45,7 +44,7 @@ pub enum PlayerEvent {
     EnoughData,
     Error,
     FrameUpdated,
-    MetadataUpdated(metadata::Metadata),
+    MetadataUpdated(Metadata),
     /// The internal player queue is running out of data. The client should start
     /// pushing more data.
     NeedData,
@@ -77,8 +76,6 @@ pub enum GlContext {
 }
 
 pub trait Player: Send {
-    fn register_event_handler(&self, sender: IpcSender<PlayerEvent>);
-    fn register_frame_renderer(&self, renderer: Arc<Mutex<frame::FrameRenderer>>);
     fn play(&self) -> Result<(), PlayerError>;
     fn pause(&self) -> Result<(), PlayerError>;
     fn stop(&self) -> Result<(), PlayerError>;

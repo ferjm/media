@@ -17,8 +17,8 @@ extern crate webrender;
 extern crate winit;
 
 use gleam::gl;
+use servo_media::player::{Frame, FrameRenderer};
 use servo_media::ServoMedia;
-use servo_media::player::frame::{Frame, FrameRenderer};
 use std::env;
 use std::path::Path;
 use std::sync::{Arc, Mutex};

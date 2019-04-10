@@ -38,17 +38,19 @@ mod source;
 pub mod webrtc;
 
 use gst::ClockExt;
+use ipc_channel::ipc::IpcSender;
 use media_stream::GStreamerMediaStream;
 use servo_media::{Backend, BackendInit};
 use servo_media_audio::context::{AudioContext, AudioContextOptions};
 use servo_media_audio::decoder::AudioDecoder;
 use servo_media_audio::sink::AudioSinkError;
 use servo_media_audio::AudioBackend;
-use servo_media_player::{Player, StreamType};
+use servo_media_player::{FrameRenderer, Player, PlayerEvent, StreamType};
 use servo_media_streams::capture::MediaTrackConstraintSet;
 use servo_media_streams::registry::MediaStreamId;
 use servo_media_streams::MediaOutput;
 use servo_media_webrtc::{WebRtcBackend, WebRtcController, WebRtcSignaller};
+use std::sync::{Arc, Mutex};
 
 lazy_static! {
     static ref BACKEND_BASE_TIME: gst::ClockTime = { gst::SystemClock::obtain().get_time() };
@@ -57,8 +59,17 @@ lazy_static! {
 pub struct GStreamerBackend;
 
 impl Backend for GStreamerBackend {
-    fn create_player(&self, stream_type: StreamType) -> Box<Player> {
-        Box::new(player::GStreamerPlayer::new(stream_type))
+    fn create_player(
+        &self,
+        stream_type: StreamType,
+        event_handler: IpcSender<PlayerEvent>,
+        renderer: Arc<Mutex<FrameRenderer>>,
+    ) -> Box<Player> {
+        Box::new(player::GStreamerPlayer::new(
+            stream_type,
+            event_handler,
+            renderer,
+        ))
     }
 
     fn create_audio_context(&self, options: AudioContextOptions) -> AudioContext {

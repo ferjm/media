@@ -1,5 +1,5 @@
+extern crate ipc_channel;
 pub extern crate servo_media_audio as audio;
-
 pub extern crate servo_media_player as player;
 pub extern crate servo_media_streams as streams;
 pub extern crate servo_media_webrtc as webrtc;
@@ -7,7 +7,8 @@ use std::ops::Deref;
 use std::sync::{self, Arc, Mutex, Once};
 
 use audio::context::{AudioContext, AudioContextOptions};
-use player::{Player, StreamType};
+use ipc_channel::ipc::IpcSender;
+use player::{FrameRenderer, Player, PlayerEvent, StreamType};
 use streams::capture::MediaTrackConstraintSet;
 use streams::registry::MediaStreamId;
 use streams::MediaOutput;
@@ -23,7 +24,12 @@ pub trait BackendInit {
 }
 
 pub trait Backend: Send + Sync {
-    fn create_player(&self, stream_type: StreamType) -> Box<Player>;
+    fn create_player(
+        &self,
+        stream_type: StreamType,
+        event_handler: IpcSender<PlayerEvent>,
+        renderer: Arc<Mutex<FrameRenderer>>,
+    ) -> Box<Player>;
     fn create_audiostream(&self) -> MediaStreamId;
     fn create_videostream(&self) -> MediaStreamId;
     fn create_stream_output(&self) -> Box<MediaOutput>;

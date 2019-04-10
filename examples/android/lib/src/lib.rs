@@ -12,7 +12,7 @@ use servo_media::audio::node::AudioScheduledSourceNodeMessage;
 #[cfg(target_os = "android")]
 use servo_media::audio::node::{AudioNodeInit, AudioNodeMessage};
 #[cfg(target_os = "android")]
-use servo_media::{ServoMedia};
+use servo_media::ServoMedia;
 
 #[cfg(target_os = "android")]
 struct AudioStream {

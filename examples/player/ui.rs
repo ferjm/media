@@ -173,9 +173,8 @@ pub fn main_wrapper<E: Example + FrameRenderer>(
     let document_id = api.add_document(framebuffer_size, 0);
 
     let gl_win = if use_gl { Some(&window) } else { None };
-    let player_wrapper = PlayerWrapper::new(path, gl_win);
+    let player_wrapper = PlayerWrapper::new(path, gl_win, example.clone());
     example.lock().unwrap().use_gl(player_wrapper.use_gl());
-    player_wrapper.register_frame_renderer(example.clone());
 
     let (external, output) = example.lock().unwrap().get_image_handlers(&*gl);
 

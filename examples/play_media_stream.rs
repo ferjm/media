@@ -3,15 +3,23 @@ extern crate servo_media;
 extern crate servo_media_auto;
 
 use ipc_channel::ipc;
-use servo_media::player::{PlayerEvent, StreamType};
+use servo_media::player::{Frame, FrameRenderer, PlayerEvent, StreamType};
 use servo_media::ServoMedia;
 use std::sync::{Arc, Mutex};
 
-fn run_example(servo_media: Arc<ServoMedia>) {
-    let player = Arc::new(Mutex::new(servo_media.create_player(StreamType::Stream)));
+struct DummyRenderer {}
+impl FrameRenderer for DummyRenderer {
+    fn render(&mut self, _: Frame) {}
+}
 
+fn run_example(servo_media: Arc<ServoMedia>) {
     let (sender, receiver) = ipc::channel().unwrap();
-    player.lock().unwrap().register_event_handler(sender);
+    let renderer = Arc::new(Mutex::new(DummyRenderer {}));
+    let player = Arc::new(Mutex::new(servo_media.create_player(
+        StreamType::Stream,
+        sender,
+        renderer,
+    )));
 
     let audio_stream = servo_media.create_audiostream();
     player.lock().unwrap().set_stream(&audio_stream).unwrap();

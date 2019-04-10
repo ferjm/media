@@ -49,9 +49,18 @@ impl PlayerWrapper {
         Err(())
     }
 
-    pub fn new(path: &Path, window: Option<&glutin::GlWindow>) -> Self {
+    pub fn new(
+        path: &Path,
+        window: Option<&glutin::GlWindow>,
+        renderer: Arc<Mutex<FrameRenderer>>,
+    ) -> Self {
         let servo_media = ServoMedia::get().unwrap();
-        let player = Arc::new(Mutex::new(servo_media.create_player(StreamType::Seekable)));
+        let (sender, receiver) = ipc::channel().unwrap();
+        let player = Arc::new(Mutex::new(servo_media.create_player(
+            StreamType::Seekable,
+            sender,
+            renderer,
+        )));
         let use_gl = if let Some(win) = window {
             PlayerWrapper::set_gl_params(&player, win).is_ok()
         } else {
@@ -64,8 +73,6 @@ impl PlayerWrapper {
             .unwrap()
             .set_input_size(metadata.len())
             .unwrap();
-        let (sender, receiver) = ipc::channel().unwrap();
-        player.lock().unwrap().register_event_handler(sender);
         let player_ = player.clone();
         let player__ = player.clone();
         let shutdown = Arc::new(AtomicBool::new(false));
@@ -152,12 +159,5 @@ impl PlayerWrapper {
 
     pub fn use_gl(&self) -> bool {
         self.use_gl
-    }
-
-    pub fn register_frame_renderer(&self, renderer: Arc<Mutex<FrameRenderer>>) {
-        self.player
-            .lock()
-            .unwrap()
-            .register_frame_renderer(renderer);
     }
 }

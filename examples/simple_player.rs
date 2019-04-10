@@ -3,7 +3,7 @@ extern crate servo_media;
 extern crate servo_media_auto;
 
 use ipc_channel::ipc;
-use servo_media::player::{PlayerEvent, StreamType};
+use servo_media::player::{Frame, FrameRenderer, PlayerEvent, StreamType};
 use servo_media::ServoMedia;
 use std::env;
 use std::error::Error;
@@ -15,8 +15,19 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+struct DummyRenderer {}
+impl FrameRenderer for DummyRenderer {
+    fn render(&mut self, _: Frame) {}
+}
+
 fn run_example(servo_media: Arc<ServoMedia>) {
-    let player = Arc::new(Mutex::new(servo_media.create_player(StreamType::Seekable)));
+    let (sender, receiver) = ipc::channel().unwrap();
+    let renderer = Arc::new(Mutex::new(DummyRenderer {}));
+    let player = Arc::new(Mutex::new(servo_media.create_player(
+        StreamType::Seekable,
+        sender,
+        renderer,
+    )));
     let args: Vec<_> = env::args().collect();
     let default = "./examples/resources/viper_cut.ogg";
     let filename: &str = if args.len() == 2 {
@@ -26,9 +37,6 @@ fn run_example(servo_media: Arc<ServoMedia>) {
     } else {
         panic!("Usage: cargo run --bin player <file_path>")
     };
-
-    let (sender, receiver) = ipc::channel().unwrap();
-    player.lock().unwrap().register_event_handler(sender);
 
     let path = Path::new(filename);
     let display = path.display();

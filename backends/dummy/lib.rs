@@ -15,7 +15,7 @@ use servo_media_audio::decoder::{AudioDecoder, AudioDecoderCallbacks, AudioDecod
 use servo_media_audio::render_thread::AudioRenderThreadMsg;
 use servo_media_audio::sink::{AudioSink, AudioSinkError};
 use servo_media_audio::AudioBackend;
-use servo_media_player::{frame, GlContext, Player, PlayerError, PlayerEvent, StreamType};
+use servo_media_player::{FrameRenderer, GlContext, Player, PlayerError, PlayerEvent, StreamType};
 use servo_media_streams::capture::MediaTrackConstraintSet;
 use servo_media_streams::registry::{register_stream, unregister_stream, MediaStreamId};
 use servo_media_streams::{MediaOutput, MediaStream};
@@ -65,7 +65,12 @@ impl Backend for DummyBackend {
         }))))
     }
 
-    fn create_player(&self, _: StreamType) -> Box<Player> {
+    fn create_player(
+        &self,
+        _: StreamType,
+        _: IpcSender<PlayerEvent>,
+        _: Arc<Mutex<FrameRenderer>>,
+    ) -> Box<Player> {
         Box::new(DummyPlayer)
     }
 
@@ -92,9 +97,6 @@ impl AudioBackend for DummyBackend {
 pub struct DummyPlayer;
 
 impl Player for DummyPlayer {
-    fn register_event_handler(&self, _: IpcSender<PlayerEvent>) {}
-    fn register_frame_renderer(&self, _: Arc<Mutex<frame::FrameRenderer>>) {}
-
     fn play(&self) -> Result<(), PlayerError> {
         Ok(())
     }

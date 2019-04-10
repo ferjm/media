@@ -322,66 +322,10 @@ impl PlayerInner {
     }
 }
 
-type PlayerEventObserver = IpcSender<PlayerEvent>;
-struct PlayerEventObserverList {
-    observers: Vec<PlayerEventObserver>,
-}
-
-impl PlayerEventObserverList {
-    fn new() -> Self {
-        Self {
-            observers: Vec::new(),
-        }
-    }
-
-    fn register(&mut self, observer: PlayerEventObserver) {
-        self.observers.push(observer);
-    }
-
-    fn notify(&self, event: PlayerEvent) {
-        for observer in &self.observers {
-            observer.send(event.clone()).unwrap();
-        }
-    }
-
-    fn clear(&mut self) {
-        self.observers.clear();
-    }
-}
-
-struct FrameRendererList {
-    renderers: Vec<Arc<Mutex<FrameRenderer>>>,
-}
-
-impl FrameRendererList {
-    fn new() -> Self {
-        Self {
-            renderers: Vec::new(),
-        }
-    }
-
-    fn register(&mut self, renderer: Arc<Mutex<FrameRenderer>>) {
-        self.renderers.push(renderer);
-    }
-
-    fn render(&self, sample: &gst::Sample) -> Result<(), ()> {
-        let frame = frame_from_sample(&sample)?;
-
-        for renderer in &self.renderers {
-            renderer.lock().unwrap().render(frame.clone());
-        }
-        Ok(())
-    }
-
-    fn clear(&mut self) {
-        self.renderers.clear();
-    }
-}
-
 pub struct GStreamerPlayer {
     inner: RefCell<Option<Arc<Mutex<PlayerInner>>>>,
-    observers: Arc<Mutex<PlayerEventObserverList>>,
-    renderers: Arc<Mutex<FrameRendererList>>,
+    observer: Arc<Mutex<IpcSender<PlayerEvent>>>,
+    renderer: Arc<Mutex<FrameRenderer>>,
     /// Indicates whether the setup was succesfully performed and
     /// we are ready to consume a/v data.
     is_ready: Arc<Once>,
@@ -392,11 +336,15 @@ pub struct GStreamerPlayer {
 }
 
 impl GStreamerPlayer {
-    pub fn new(stream_type: StreamType) -> GStreamerPlayer {
+    pub fn new(
+        stream_type: StreamType,
+        event_handler: IpcSender<PlayerEvent>,
+        renderer: Arc<Mutex<FrameRenderer>>,
+    ) -> GStreamerPlayer {
         Self {
             inner: RefCell::new(None),
-            observers: Arc::new(Mutex::new(PlayerEventObserverList::new())),
-            renderers: Arc::new(Mutex::new(FrameRendererList::new())),
+            observer: Arc::new(Mutex::new(event_handler)),
+            renderer,
             is_ready: Arc::new(Once::new()),
             gl_context: RefCell::new(None),
             gl_display: RefCell::new(None),
@@ -593,23 +541,27 @@ impl GStreamerPlayer {
 
         let inner = self.inner.borrow();
         let inner = inner.as_ref().unwrap();
-        let observers = self.observers.clone();
+        let observer = self.observer.clone();
         // Handle `end-of-stream` signal.
         inner
             .lock()
             .unwrap()
             .player
             .connect_end_of_stream(move |_| {
-                observers.lock().unwrap().notify(PlayerEvent::EndOfStream);
+                observer
+                    .lock()
+                    .unwrap()
+                    .send(PlayerEvent::EndOfStream)
+                    .unwrap();
             });
 
-        let observers = self.observers.clone();
+        let observer = self.observer.clone();
         // Handle `error` signal
         inner.lock().unwrap().player.connect_error(move |_, _| {
-            observers.lock().unwrap().notify(PlayerEvent::Error);
+            observer.lock().unwrap().send(PlayerEvent::Error).unwrap();
         });
 
-        let observers = self.observers.clone();
+        let observer = self.observer.clone();
         // Handle `state-changed` signal.
         inner
             .lock()
@@ -624,14 +576,15 @@ impl GStreamerPlayer {
                     _ => None,
                 };
                 if let Some(v) = state {
-                    observers
+                    observer
                         .lock()
                         .unwrap()
-                        .notify(PlayerEvent::StateChanged(v));
+                        .send(PlayerEvent::StateChanged(v))
+                        .unwrap();
                 }
             });
 
-        let observers = self.observers.clone();
+        let observer = self.observer.clone();
         // Handle `position-update` signal.
         inner
             .lock()
@@ -639,14 +592,15 @@ impl GStreamerPlayer {
             .player
             .connect_position_updated(move |_, position| {
                 if let Some(seconds) = position.seconds() {
-                    observers
+                    observer
                         .lock()
                         .unwrap()
-                        .notify(PlayerEvent::PositionChanged(seconds));
+                        .send(PlayerEvent::PositionChanged(seconds))
+                        .unwrap();
                 }
             });
 
-        let observers = self.observers.clone();
+        let observer = self.observer.clone();
         // Handle `seek-done` signal.
         inner
             .lock()
@@ -654,16 +608,17 @@ impl GStreamerPlayer {
             .player
             .connect_seek_done(move |_, position| {
                 if let Some(seconds) = position.seconds() {
-                    observers
+                    observer
                         .lock()
                         .unwrap()
-                        .notify(PlayerEvent::SeekDone(seconds));
+                        .send(PlayerEvent::SeekDone(seconds))
+                        .unwrap();
                 }
             });
 
         // Handle `media-info-updated` signal.
         let inner_clone = inner.clone();
-        let observers = self.observers.clone();
+        let observer = self.observer.clone();
         inner
             .lock()
             .unwrap()
@@ -677,17 +632,18 @@ impl GStreamerPlayer {
                             inner.player.set_rate(inner.rate);
                         }
                         gst_info!(inner.cat, obj: &inner.player, "Metadata updated: {:?}", metadata);
-                        observers
+                        observer
                             .lock()
                             .unwrap()
-                            .notify(PlayerEvent::MetadataUpdated(metadata));
+                            .send(PlayerEvent::MetadataUpdated(metadata))
+                            .unwrap();
                     }
                 }
             });
 
         // Handle `duration-changed` signal.
         let inner_clone = inner.clone();
-        let observers = self.observers.clone();
+        let observer = self.observer.clone();
         inner
             .lock()
             .unwrap()
@@ -720,30 +676,29 @@ impl GStreamerPlayer {
                 if updated_metadata.is_some() {
                     gst_info!(inner.cat, obj: &inner.player, "Duration updated: {:?}",
                               updated_metadata);
-                    observers
+                    observer
                         .lock()
                         .unwrap()
-                        .notify(PlayerEvent::MetadataUpdated(updated_metadata.unwrap()));
+                        .send(PlayerEvent::MetadataUpdated(updated_metadata.unwrap()))
+                        .unwrap();
                 }
             });
 
-        let observers = self.observers.clone();
-        let renderers = self.renderers.clone();
+        let observer = self.observer.clone();
+        let renderer = self.renderer.clone();
         // Set appsink callbacks.
         inner.lock().unwrap().appsink.set_callbacks(
             gst_app::AppSinkCallbacks::new()
                 .new_preroll(|_| Ok(gst::FlowSuccess::Ok))
                 .new_sample(move |appsink| {
                     let sample = appsink.pull_sample().ok_or(gst::FlowError::Eos)?;
-                    renderers
+                    let frame = frame_from_sample(&sample).map_err(|_| gst::FlowError::Error)?;
+                    renderer.lock().unwrap().render(frame);
+                    observer
                         .lock()
                         .unwrap()
-                        .render(&sample)
-                        .map(|_| {
-                            observers.lock().unwrap().notify(PlayerEvent::FrameUpdated);
-                        })
-                        .map_err(|_| gst::FlowError::Error)?;
-
+                        .send(PlayerEvent::FrameUpdated)
+                        .unwrap();
                     Ok(gst::FlowSuccess::Ok)
                 })
                 .build(),
@@ -759,7 +714,7 @@ impl GStreamerPlayer {
             let sender = Arc::new(Mutex::new(sender));
             let sender_clone = sender.clone();
             let is_ready_clone = self.is_ready.clone();
-            let observers = self.observers.clone();
+            let observer = self.observer.clone();
             let connect_result = pipeline.connect("source-setup", false, move |args| {
                 let source = match args[1].get::<gst::Element>() {
                     Some(source) => source,
@@ -786,9 +741,9 @@ impl GStreamerPlayer {
 
                         let sender_clone = sender.clone();
                         let is_ready_ = is_ready_clone.clone();
-                        let observers_ = observers.clone();
-                        let observers__ = observers.clone();
-                        let observers___ = observers.clone();
+                        let observer_ = observer.clone();
+                        let observer__ = observer.clone();
+                        let observer___ = observer.clone();
                         servosrc.set_callbacks(
                             gst_app::AppSrcCallbacks::new()
                                 .need_data(move |_, _| {
@@ -800,16 +755,25 @@ impl GStreamerPlayer {
                                     is_ready_.call_once(|| {
                                         let _ = sender_clone.lock().unwrap().send(Ok(()));
                                     });
-                                    observers_.lock().unwrap().notify(PlayerEvent::NeedData);
-                                })
-                                .enough_data(move |_| {
-                                    observers__.lock().unwrap().notify(PlayerEvent::EnoughData);
-                                })
-                                .seek_data(move |_, offset| {
-                                    observers___
+                                    observer_
                                         .lock()
                                         .unwrap()
-                                        .notify(PlayerEvent::SeekData(offset));
+                                        .send(PlayerEvent::NeedData)
+                                        .unwrap();
+                                })
+                                .enough_data(move |_| {
+                                    observer__
+                                        .lock()
+                                        .unwrap()
+                                        .send(PlayerEvent::EnoughData)
+                                        .unwrap();
+                                })
+                                .seek_data(move |_, offset| {
+                                    observer___
+                                        .lock()
+                                        .unwrap()
+                                        .send(PlayerEvent::SeekData(offset))
+                                        .unwrap();
                                     true
                                 })
                                 .build(),
@@ -895,14 +859,6 @@ impl Player for GStreamerPlayer {
     inner_player_proxy!(buffered, Vec<Range<f64>>);
     inner_player_proxy!(set_stream, stream, &MediaStreamId);
 
-    fn register_event_handler(&self, sender: IpcSender<PlayerEvent>) {
-        self.observers.lock().unwrap().register(sender);
-    }
-
-    fn register_frame_renderer(&self, renderer: Arc<Mutex<FrameRenderer>>) {
-        self.renderers.lock().unwrap().register(renderer);
-    }
-
     fn set_gl_params(&self, _: GlContext, _: usize) -> Result<(), ()> {
         // XXX All GL functionality is temporarily disabled because of
         // https://github.com/servo/servo/pull/22944#issuecomment-468827665
@@ -910,8 +866,6 @@ impl Player for GStreamerPlayer {
     }
 
     fn shutdown(&self) -> Result<(), PlayerError> {
-        self.observers.lock().unwrap().clear();
-        self.renderers.lock().unwrap().clear();
         self.stop()
     }
 }
