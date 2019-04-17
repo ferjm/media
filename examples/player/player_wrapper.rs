@@ -11,7 +11,6 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::Builder;
 
@@ -29,6 +28,7 @@ impl PlayerWrapper {
 
         let file = File::open(&path).unwrap();
         let metadata = file.metadata().unwrap();
+
         player
             .lock()
             .unwrap()
@@ -39,71 +39,17 @@ impl PlayerWrapper {
         player.lock().unwrap().register_event_handler(sender);
 
         let player_ = player.clone();
-        let player__ = player.clone();
         let shutdown = Arc::new(AtomicBool::new(false));
         let shutdown_ = shutdown.clone();
-        let shutdown__ = shutdown.clone();
-
-        let (seek_sender, seek_receiver) = mpsc::channel();
-
-        Builder::new()
-            .name("File reader".to_owned())
-            .spawn(move || {
-                let player = &player_;
-                let shutdown = &shutdown_;
-
-                let mut buf_reader = BufReader::new(file);
-                let mut buffer = [0; 8192];
-                let end_file = AtomicBool::new(false);
-
-                while !shutdown.load(Ordering::Relaxed) {
-                    if let Ok(offset) = seek_receiver.try_recv() {
-                        if buf_reader.seek(SeekFrom::Start(offset)).is_err() {
-                            eprintln!("BufReader - Could not seek to {:?}", offset);
-                            break;
-                        }
-                        end_file.store(false, Ordering::Relaxed);
-                    }
-
-                    if !end_file.load(Ordering::Relaxed) {
-                        match buf_reader.read(&mut buffer[..]) {
-                            Ok(0) => {
-                                println!("finished pushing data");
-                                end_file.store(true, Ordering::Relaxed);
-                            }
-                            Ok(size) => {
-                                match player
-                                    .lock()
-                                    .unwrap()
-                                    .push_data(Vec::from(&buffer[0..size]))
-                                {
-                                    Ok(_) => (),
-                                    Err(PlayerError::EnoughData) => {
-                                        print!("!");
-                                    }
-                                    Err(e) => {
-                                        println!("Can't push data: {:?}", e);
-                                        break;
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("Error: {}", e);
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                println!("out loop");
-            })
-            .unwrap();
 
         Builder::new()
             .name("Player event loop".to_owned())
             .spawn(move || {
-                let player = &player__;
-                let shutdown = &shutdown__;
+                let player = &player_;
+                let mut buf_reader = BufReader::new(file);
+                let mut buffer = [0; 8192];
+                let mut input_eos = false;
+                let shutdown = shutdown_;
 
                 while let Ok(event) = receiver.recv() {
                     match event {
@@ -125,13 +71,48 @@ impl PlayerWrapper {
                         PlayerEvent::PositionChanged(_) => (),
                         PlayerEvent::SeekData(offset) => {
                             println!("Seek requested to position {:?}", offset);
-                            seek_sender.send(offset).unwrap();
+                            input_eos = false;
+                            if buf_reader.seek(SeekFrom::Start(offset)).is_err() {
+                                eprintln!("BufReader - Could not seek to {:?}", offset);
+                                break;
+                            }
                         }
                         PlayerEvent::SeekDone(offset) => {
                             println!("Seek done to position {:?}", offset);
                         }
                         PlayerEvent::NeedData => {
-                            println!("Player needs data");
+                            if !input_eos {
+                                match buf_reader.read(&mut buffer[..]) {
+                                    Ok(0) => {
+                                        if player.lock().unwrap().end_of_stream().is_err() {
+                                            eprintln!("Error at setting end of stream");
+                                            break;
+                                        } else {
+                                            input_eos = true;
+                                        }
+                                    }
+                                    Ok(size) => {
+                                        match player
+                                            .lock()
+                                            .unwrap()
+                                            .push_data(Vec::from(&buffer[0..size]))
+                                        {
+                                            Ok(_) => (),
+                                            Err(PlayerError::EnoughData) => {
+                                                print!("!");
+                                            }
+                                            Err(e) => {
+                                                eprintln!("Error at pushing data {:?}", e);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Error reading file: {}", e);
+                                        break;
+                                    }
+                                }
+                            }
                         }
                         PlayerEvent::EnoughData => {
                             println!("Player has enough data");
@@ -144,7 +125,6 @@ impl PlayerWrapper {
                 }
 
                 player.lock().unwrap().shutdown().unwrap();
-                shutdown.store(true, Ordering::Relaxed);
             })
             .unwrap();
 
@@ -154,7 +134,7 @@ impl PlayerWrapper {
     }
 
     pub fn shutdown(&self) {
-        self.player.lock().unwrap().stop().unwrap();
+        self.player.lock().unwrap().shutdown().unwrap();
         self.shutdown.store(true, Ordering::Relaxed);
     }
 

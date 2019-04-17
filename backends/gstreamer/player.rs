@@ -690,15 +690,6 @@ impl GStreamerPlayer {
                         servosrc.set_callbacks(
                             gst_app::AppSrcCallbacks::new()
                                 .need_data(move |_, _| {
-                                    // We block the caller of the setup method until we get
-                                    // the first need-data signal, so we ensure that we
-                                    // don't miss any data between the moment the client
-                                    // calls setup and the player is actually ready to
-                                    // get any data.
-                                    is_ready.call_once(|| {
-                                        let _ = sender_clone.lock().unwrap().send(Ok(()));
-                                    });
-
                                     enough_data_.store(false, Ordering::Relaxed);
                                     observers_.lock().unwrap().notify(PlayerEvent::NeedData);
                                 })
@@ -707,19 +698,19 @@ impl GStreamerPlayer {
                                     observers__.lock().unwrap().notify(PlayerEvent::EnoughData);
                                 })
                                 .seek_data(move |_, offset| {
-                                    // We only emit seek data requests if the offset is
-                                    // different from current position
-                                    if servosrc_.set_seek_offset(offset) {
-                                        observers___
-                                            .lock()
-                                            .unwrap()
-                                            .notify(PlayerEvent::SeekData(offset));
-                                    }
+                                    observers___
+                                        .lock()
+                                        .unwrap()
+                                        .notify(PlayerEvent::SeekData(offset));
+                                    let _ = servosrc_.set_seek_offset(offset);
                                     true
                                 })
                                 .build(),
                         );
 
+                        is_ready.call_once(|| {
+                            let _ = sender_clone.lock().unwrap().send(Ok(()));
+                        });
                         PlayerSource::Seekable(servosrc)
                     }
                     StreamType::Stream => {
