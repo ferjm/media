@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate lazy_static;
-extern crate uuid;
 
 pub mod capture;
 pub mod registry;

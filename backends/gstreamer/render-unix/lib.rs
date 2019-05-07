@@ -14,7 +14,6 @@
     target_os = "openbsd"
 ))]
 
-extern crate glib;
 #[macro_use]
 extern crate gstreamer as gst;
 extern crate gstreamer_gl as gst_gl;
