@@ -5,7 +5,9 @@ use glib::translate::*;
 use gst;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
+use gst_base::UniqueFlowCombiner;
 use media_stream::GStreamerMediaStream;
+use servo_media_streams::{MediaStream, MediaStreamType};
 use url::Url;
 
 // Implementation sub-module of the GObject
@@ -14,8 +16,10 @@ mod imp {
 
     pub struct ServoMediaStreamSrc {
         cat: gst::DebugCategory,
-        proxysrc: gst::Element,
-        srcpad: gst::GhostPad,
+        audio_proxysrc: gst::Element,
+        audio_srcpad: gst::GhostPad,
+        video_proxysrc: gst::Element,
+        video_srcpad: gst::GhostPad,
     }
 
     impl ServoMediaStreamSrc {
@@ -29,8 +33,13 @@ mod imp {
             pipeline.add(&sink).unwrap();
             gst::Element::link_many(&[&last_element, &sink][..]).unwrap();
 
-            // Connect the media stream proxysink to the source's proxysrc.
-            self.proxysrc.set_property("proxysink", &sink).unwrap();
+            // Connect the media stream proxysink to the source's audio or
+            // video proxysrc, depending on the stream type.
+            let proxysrc = match stream.ty() {
+                MediaStreamType::Audio => &self.audio_proxysrc,
+                MediaStreamType::Video => &self.video_proxysrc,
+            };
+            proxysrc.set_property("proxysink", &sink).unwrap();
 
             sink.sync_state_with_parent().unwrap();
 
@@ -50,12 +59,32 @@ mod imp {
         // Called once at the very beginning of instantiation of each instance and
         // creates the data structure that contains all our state
         fn new_with_class(klass: &subclass::simple::ClassStruct<Self>) -> Self {
-            let proxysrc = gst::ElementFactory::make("proxysrc", None)
+            let flow_combiner = UniqueFlowCombiner::new();
+
+            let audio_proxysrc = gst::ElementFactory::make("proxysrc", None)
                 .expect("Could not create proxysrc element");
 
             let pad_templ = klass.get_pad_template("src").unwrap();
-            let srcpad =
-                gst::GhostPad::new_no_target_from_template("stream_src", &pad_templ).unwrap();
+            let audio_srcpad =
+                gst::GhostPad::new_no_target_from_template("audio_stream_src", &pad_templ).unwrap();
+            flow_combiner.add_pad(&audio_srcpad);
+
+            let video_proxysrc = gst::ElementFactory::make("proxysrc", None)
+                .expect("Could not create proxysrc element");
+
+            let pad_templ = klass.get_pad_template("src").unwrap();
+            let video_srcpad =
+                gst::GhostPad::new_no_target_from_template("video_stream_src", &pad_templ).unwrap();
+            flow_combiner.add_pad(&video_srcpad);
+
+            audio_srcpad.set_chain_function(|_, _, _| {
+                Ok(gst::FlowSuccess::Ok)
+            });
+
+            video_srcpad.set_chain_function(|pad, parent, buffer| {
+                let chain_result = gst::ProxyPad::chain_default(pad.upcast_ref::<gst::ProxyPad>(), parent, buffer);
+                flow_combiner.update_pad_flow(pad, chain_result)
+            });
 
             Self {
                 cat: gst::DebugCategory::new(
@@ -63,8 +92,10 @@ mod imp {
                     gst::DebugColorFlags::empty(),
                     "Servo media stream source",
                 ),
-                proxysrc,
-                srcpad,
+                audio_proxysrc,
+                audio_srcpad,
+                video_proxysrc,
+                video_srcpad,
             }
         }
 
@@ -113,21 +144,38 @@ mod imp {
 
             let bin = obj.downcast_ref::<gst::Bin>().unwrap();
 
+            //XXX(ferjm) create a macro for this.
+
             // Add audio proxy sink and source pad to bin.
-            bin.add(&self.proxysrc)
-                .expect("Could not add proxysrc element to bin");
+            bin.add(&self.audio_proxysrc)
+                .expect("Could not add audio proxysrc element to bin");
 
             let target_pad = self
-                .proxysrc
+                .audio_proxysrc
                 .get_static_pad("src")
-                .expect("Could not get source pad");
-            self.srcpad.set_target(&target_pad).unwrap();
+                .expect("Could not get audio source pad");
+            self.audio_srcpad.set_target(&target_pad).unwrap();
 
             let element = obj.downcast_ref::<gst::Element>().unwrap();
             element
-                .add_pad(&self.srcpad)
-                .expect("Could not add source pad to bin");
+                .add_pad(&self.audio_srcpad)
+                .expect("Could not add audio source pad to bin");
+            ::set_element_flags(element, gst::ElementFlags::SOURCE);
 
+            // Add video proxy sink and source pad to bin.
+            bin.add(&self.video_proxysrc)
+                .expect("Could not add video proxysrc element to bin");
+
+            let target_pad = self
+                .video_proxysrc
+                .get_static_pad("src")
+                .expect("Could not get video source pad");
+            self.video_srcpad.set_target(&target_pad).unwrap();
+
+            let element = obj.downcast_ref::<gst::Element>().unwrap();
+            element
+                .add_pad(&self.video_srcpad)
+                .expect("Could not add video source pad to bin");
             ::set_element_flags(element, gst::ElementFlags::SOURCE);
         }
     }

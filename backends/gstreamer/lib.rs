@@ -112,11 +112,13 @@ impl Backend for GStreamerBackend {
                 return SupportsMediaType::No;
             }
 
-            let mime_type = mime.type_().as_str().to_owned() + "/" + mime.subtype().as_str(); 
+            let mime_type = mime.type_().as_str().to_owned() + "/" + mime.subtype().as_str();
             let codecs = match mime.get_param("codecs") {
-                Some(codecs) => {
-                    codecs.as_str().split(',').map(|codec| codec.trim()).collect() 
-                },
+                Some(codecs) => codecs
+                    .as_str()
+                    .split(',')
+                    .map(|codec| codec.trim())
+                    .collect(),
                 None => vec![],
             };
 

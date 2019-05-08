@@ -38,23 +38,23 @@ impl GStreamerRegistryScanner {
 
     fn initialize(&mut self) {
         let audio_decoder_factories = gst::ElementFactory::list_get_elements(
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_DECODER |
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_AUDIO,
+            gst_ffi::GST_ELEMENT_FACTORY_TYPE_DECODER
+                | gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_AUDIO,
             gst::Rank::Marginal,
         );
         let audio_parser_factories = gst::ElementFactory::list_get_elements(
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_PARSER |
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_AUDIO,
+            gst_ffi::GST_ELEMENT_FACTORY_TYPE_PARSER
+                | gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_AUDIO,
             gst::Rank::None,
         );
         let video_decoder_factories = gst::ElementFactory::list_get_elements(
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_DECODER |
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_VIDEO,
+            gst_ffi::GST_ELEMENT_FACTORY_TYPE_DECODER
+                | gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_VIDEO,
             gst::Rank::Marginal,
         );
         let video_parser_factories = gst::ElementFactory::list_get_elements(
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_PARSER |
-            gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_VIDEO,
+            gst_ffi::GST_ELEMENT_FACTORY_TYPE_PARSER
+                | gst_ffi::GST_ELEMENT_FACTORY_TYPE_MEDIA_VIDEO,
             gst::Rank::Marginal,
         );
         let demux_factories = gst::ElementFactory::list_get_elements(
@@ -70,22 +70,29 @@ impl GStreamerRegistryScanner {
             self.supported_codecs.insert("mp4a*");
         }
 
-        let is_opus_supported = has_element_for_media_type(&audio_decoder_factories, "audio/x-opus");
-        if is_opus_supported && has_element_for_media_type(&audio_parser_factories, "audio/x-opus") {
+        let is_opus_supported =
+            has_element_for_media_type(&audio_decoder_factories, "audio/x-opus");
+        if is_opus_supported && has_element_for_media_type(&audio_parser_factories, "audio/x-opus")
+        {
             self.supported_mime_types.insert("audio/opus");
             self.supported_codecs.insert("opus");
             self.supported_codecs.insert("x-opus");
         }
 
-        let is_vorbis_supported = has_element_for_media_type(&audio_decoder_factories, "audio/x-vorbis");
-        if is_vorbis_supported && has_element_for_media_type(&audio_parser_factories, "audio/x-vorbis") {
+        let is_vorbis_supported =
+            has_element_for_media_type(&audio_decoder_factories, "audio/x-vorbis");
+        if is_vorbis_supported
+            && has_element_for_media_type(&audio_parser_factories, "audio/x-vorbis")
+        {
             self.supported_codecs.insert("vorbis");
             self.supported_codecs.insert("x-vorbis");
         }
 
         if has_element_for_media_type(&demux_factories, "video/x-matroska") {
-            let is_vp8_decoder_available = has_element_for_media_type(&video_decoder_factories, "video/x-vp8");
-            let is_vp9_decoder_available = has_element_for_media_type(&video_decoder_factories, "video/x-vp9");
+            let is_vp8_decoder_available =
+                has_element_for_media_type(&video_decoder_factories, "video/x-vp8");
+            let is_vp9_decoder_available =
+                has_element_for_media_type(&video_decoder_factories, "video/x-vp9");
 
             if is_vp8_decoder_available || is_vp9_decoder_available {
                 self.supported_mime_types.insert("video/webm");
@@ -110,9 +117,11 @@ impl GStreamerRegistryScanner {
 
         let is_h264_decoder_available = has_element_for_media_type(
             &video_decoder_factories,
-            "video/x-h264, profile=(string){ constrained-baseline, baseline, high }"
+            "video/x-h264, profile=(string){ constrained-baseline, baseline, high }",
         );
-        if is_h264_decoder_available && has_element_for_media_type(&video_parser_factories, "video/x-h264") {
+        if is_h264_decoder_available
+            && has_element_for_media_type(&video_parser_factories, "video/x-h264")
+        {
             self.supported_mime_types.insert("video/mp4");
             self.supported_mime_types.insert("video/x-m4v");
             self.supported_codecs.insert("x-h264");
@@ -138,12 +147,15 @@ impl GStreamerRegistryScanner {
             self.supported_mime_types.insert("audio/speex");
             self.supported_mime_types.insert("audio/x-speex");
         }
-        
+
         if has_element_for_media_type(&audio_decoder_factories, "audio/x-wavpack") {
             self.supported_mime_types.insert("audio/x-wavpack");
         }
 
-        if has_element_for_media_type(&video_decoder_factories, "video/mpeg, mpegversion=(int){1,2}, systemstream=(boolean)false") {
+        if has_element_for_media_type(
+            &video_decoder_factories,
+            "video/mpeg, mpegversion=(int){1,2}, systemstream=(boolean)false",
+        ) {
             self.supported_mime_types.insert("video/mpeg");
             self.supported_codecs.insert("mpeg");
         }
@@ -158,7 +170,8 @@ impl GStreamerRegistryScanner {
         }
 
         if has_element_for_media_type(&demux_factories, "application/x-hls") {
-            self.supported_mime_types.insert("application/vnd.apple.mpegurl");
+            self.supported_mime_types
+                .insert("application/vnd.apple.mpegurl");
             self.supported_mime_types.insert("application/x-mpegurl");
         }
 
@@ -193,7 +206,10 @@ impl GStreamerRegistryScanner {
         }
 
         let mut is_audio_mpeg_supported = false;
-        if has_element_for_media_type(&audio_decoder_factories, "audio/mpeg, mpegversion=(int)1, layer=(int)[1, 3]") {
+        if has_element_for_media_type(
+            &audio_decoder_factories,
+            "audio/mpeg, mpegversion=(int)1, layer=(int)[1, 3]",
+        ) {
             is_audio_mpeg_supported = true;
             self.supported_mime_types.insert("audio/mp1");
             self.supported_mime_types.insert("audio/mp3");
@@ -212,7 +228,8 @@ impl GStreamerRegistryScanner {
             self.supported_mime_types.insert("audio/x-mpeg");
         }
 
-        let is_matroska_supported = has_element_for_media_type(&demux_factories, "video/x-matroska");
+        let is_matroska_supported =
+            has_element_for_media_type(&demux_factories, "video/x-matroska");
         if is_matroska_supported {
             self.supported_mime_types.insert("video/x-matroska");
 
@@ -221,25 +238,19 @@ impl GStreamerRegistryScanner {
             }
         }
 
-        if (is_matroska_supported || self.is_container_type_supported("video/mp4")) &&
-            has_element_for_media_type(&video_decoder_factories, "video/x-av1") {
+        if (is_matroska_supported || self.is_container_type_supported("video/mp4"))
+            && has_element_for_media_type(&video_decoder_factories, "video/x-av1")
+        {
             self.supported_codecs.insert("av01*");
         }
     }
 }
 
-fn has_element_for_media_type(
-    factories: &Vec<gst::ElementFactory>,
-    media_type: &str,
-) -> bool {
+fn has_element_for_media_type(factories: &Vec<gst::ElementFactory>, media_type: &str) -> bool {
     match gst::caps::Caps::from_string(media_type) {
         Some(caps) => {
-            let matching_factories = gst::ElementFactory::list_filter(
-                &factories,
-                &caps,
-                gst::PadDirection::Sink,
-                false,
-            );
+            let matching_factories =
+                gst::ElementFactory::list_filter(&factories, &caps, gst::PadDirection::Sink, false);
             matching_factories.len() > 0
         }
         None => false,

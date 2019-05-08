@@ -7,8 +7,8 @@ use gst::prelude::*;
 use gst_sdp;
 use gst_webrtc;
 use media_stream::GStreamerMediaStream;
-use servo_media_streams::MediaStreamType;
 use servo_media_streams::registry::{get_stream, MediaStreamId};
+use servo_media_streams::MediaStreamType;
 use servo_media_webrtc::thread::InternalEvent;
 use servo_media_webrtc::WebRtcController as WebRtcThread;
 use servo_media_webrtc::*;
@@ -627,9 +627,15 @@ fn on_incoming_decodebin_stream(
     proxy_sink.sync_state_with_parent().unwrap();
 
     let (stream, ty) = if name == "video" {
-        (GStreamerMediaStream::create_video_from(proxy_src), MediaStreamType::Video)
+        (
+            GStreamerMediaStream::create_video_from(proxy_src),
+            MediaStreamType::Video,
+        )
     } else {
-        (GStreamerMediaStream::create_audio_from(proxy_src), MediaStreamType::Audio)
+        (
+            GStreamerMediaStream::create_audio_from(proxy_src),
+            MediaStreamType::Audio,
+        )
     };
     thread
         .lock()

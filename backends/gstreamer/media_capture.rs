@@ -1,9 +1,9 @@
-use crate::media_stream::{GStreamerMediaStream};
+use crate::media_stream::GStreamerMediaStream;
 use gst;
 use gst::prelude::*;
-use servo_media_streams::MediaStreamType;
 use servo_media_streams::capture::*;
 use servo_media_streams::registry::{register_stream, MediaStreamId};
+use servo_media_streams::MediaStreamType;
 use std::i32;
 use std::sync::{Arc, Mutex};
 
