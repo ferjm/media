@@ -11,6 +11,7 @@
 //! The client application should implement this trait and pass the
 //! trait object to its `player` instance.
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum GlContext {
     /// The EGL platform used primarily with the X11, Wayland and
     /// Android window systems as well as on embedded Linux.
@@ -20,6 +21,7 @@ pub enum GlContext {
     Unknown,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum NativeDisplay {
     /// The EGLDisplay memory address
     Egl(usize),

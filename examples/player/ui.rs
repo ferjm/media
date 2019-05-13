@@ -22,86 +22,90 @@ use winit;
 use player_wrapper::PlayerWrapper;
 
 struct PlayerContextGlutin {
-    use_gl: bool,
-    windowed_context: Arc<glutin::WindowedContext>,
+    gl_context: GlContext,
+    native_display: NativeDisplay,
+}
+
+impl PlayerContextGlutin {
+    pub fn new(use_gl: bool, windowed_context: &glutin::WindowedContext) -> Self {
+        if !use_gl {
+            return Self {
+                gl_context: GlContext::Unknown,
+                native_display: NativeDisplay::Unknown,
+            }
+        }
+
+        let (gl_context, native_display) = {
+            use glutin::os::ContextTraitExt;
+
+            unsafe {
+                windowed_context
+                    .make_current()
+                    .expect("Couldn't make window current");
+            }
+
+            let context = windowed_context.context();
+            let raw_handle = unsafe { context.raw_handle() };
+
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ))]
+            let gl_context = {
+                use glutin::os::unix::RawHandle;
+
+                match raw_handle {
+                    RawHandle::Egl(egl_context) => GlContext::Egl(egl_context as usize),
+                    RawHandle::Glx(glx_context) => GlContext::Glx(glx_context as usize),
+                }
+            };
+
+            #[cfg(not(any(
+                target_os = "linux",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            )))]
+            let gl_context = {
+                println!("GL rendering unavailable for this platform");
+                GlContext::Unknown
+            };
+
+            let native_display = if let Some(display) = unsafe { windowed_context.context().get_egl_display() } {
+                NativeDisplay::Egl(display as usize)
+            } else {
+                use glutin::os::unix::WindowExt;
+
+                if let Some(display) = windowed_context.window().get_wayland_display() {
+                    NativeDisplay::Wayland(display as usize)
+                } else if let Some(display) = windowed_context.window().get_xlib_display() {
+                    NativeDisplay::X11(display as usize)
+                } else {
+                    NativeDisplay::Unknown
+                }
+            };
+
+            (gl_context, native_display)
+        };
+
+        Self {
+            gl_context,
+            native_display,
+        }
+    }
 }
 
 impl PlayerGLContext for PlayerContextGlutin {
     fn get_gl_context(&self) -> GlContext {
-        use glutin::os::ContextTraitExt;
-
-        if !self.use_gl {
-            return GlContext::Unknown;
-        }
-
-        unsafe {
-            self.windowed_context
-                .make_current()
-                .expect("Couldn't make window current");
-        }
-
-        let context = self.windowed_context.context();
-        let raw_handle = unsafe { context.raw_handle() };
-
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd"
-        ))]
-        {
-            use glutin::os::unix::RawHandle;
-
-            match raw_handle {
-                RawHandle::Egl(egl_context) => return GlContext::Egl(egl_context as usize),
-                RawHandle::Glx(glx_context) => return GlContext::Glx(glx_context as usize),
-            }
-        }
-
-        #[cfg(not(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd"
-        )))]
-        {
-            println!("GL rendering unavailable for this platform");
-            return GlContext::Unknown;
-        }
+        self.gl_context.clone()
     }
 
     fn get_native_display(&self) -> NativeDisplay {
-        use glutin::os::ContextTraitExt;
-
-        if !self.use_gl {
-            return NativeDisplay::Unknown;
-        }
-
-        if let Some(display) = unsafe { self.windowed_context.context().get_egl_display() } {
-            return NativeDisplay::Egl(display as usize);
-        }
-
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd"
-        ))]
-        {
-            use glutin::os::unix::WindowExt;
-
-            if let Some(display) = self.windowed_context.window().get_wayland_display() {
-                return NativeDisplay::Wayland(display as usize);
-            }
-            if let Some(display) = self.windowed_context.window().get_xlib_display() {
-                return NativeDisplay::X11(display as usize);
-            }
-        }
-
-        return NativeDisplay::Unknown;
+        self.native_display.clone()
     }
 }
 
@@ -259,10 +263,7 @@ pub fn main_wrapper<E: Example + FrameRenderer>(
     let api = sender.create_api();
     let document_id = api.add_document(framebuffer_size, 0);
 
-    let gl_context = Box::new(PlayerContextGlutin {
-        use_gl,
-        windowed_context: windowed_context.clone(),
-    });
+    let gl_context = Box::new(PlayerContextGlutin::new(use_gl, &windowed_context));
 
     let player_wrapper = PlayerWrapper::new(path, gl_context);
     example.lock().unwrap().use_gl(player_wrapper.use_gl());
