@@ -32,7 +32,7 @@ impl PlayerContextGlutin {
             return Self {
                 gl_context: GlContext::Unknown,
                 native_display: NativeDisplay::Unknown,
-            }
+            };
         }
 
         let (gl_context, native_display) = {
@@ -54,14 +54,33 @@ impl PlayerContextGlutin {
                 target_os = "netbsd",
                 target_os = "openbsd"
             ))]
-            let gl_context = {
-                use glutin::os::unix::RawHandle;
+            {
+                let gl_context = {
+                    use glutin::os::unix::RawHandle;
 
-                match raw_handle {
-                    RawHandle::Egl(egl_context) => GlContext::Egl(egl_context as usize),
-                    RawHandle::Glx(glx_context) => GlContext::Glx(glx_context as usize),
-                }
-            };
+                    match raw_handle {
+                        RawHandle::Egl(egl_context) => GlContext::Egl(egl_context as usize),
+                        RawHandle::Glx(glx_context) => GlContext::Glx(glx_context as usize),
+                    }
+                };
+                let native_display = if let Some(display) =
+                    unsafe { windowed_context.context().get_egl_display() }
+                {
+                    NativeDisplay::Egl(display as usize)
+                } else {
+                    use glutin::os::unix::WindowExt;
+
+                    if let Some(display) = windowed_context.window().get_wayland_display() {
+                        NativeDisplay::Wayland(display as usize)
+                    } else if let Some(display) = windowed_context.window().get_xlib_display() {
+                        NativeDisplay::X11(display as usize)
+                    } else {
+                        NativeDisplay::Unknown
+                    }
+                };
+
+                (gl_context, native_display)
+            }
 
             #[cfg(not(any(
                 target_os = "linux",
@@ -70,26 +89,10 @@ impl PlayerContextGlutin {
                 target_os = "netbsd",
                 target_os = "openbsd"
             )))]
-            let gl_context = {
+            {
                 println!("GL rendering unavailable for this platform");
-                GlContext::Unknown
-            };
-
-            let native_display = if let Some(display) = unsafe { windowed_context.context().get_egl_display() } {
-                NativeDisplay::Egl(display as usize)
-            } else {
-                use glutin::os::unix::WindowExt;
-
-                if let Some(display) = windowed_context.window().get_wayland_display() {
-                    NativeDisplay::Wayland(display as usize)
-                } else if let Some(display) = windowed_context.window().get_xlib_display() {
-                    NativeDisplay::X11(display as usize)
-                } else {
-                    NativeDisplay::Unknown
-                }
-            };
-
-            (gl_context, native_display)
+                (GlContext::Unknown, NativeDisplay::Unknown)
+            }
         };
 
         Self {
