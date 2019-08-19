@@ -92,7 +92,8 @@ impl PlayerContextGlutin {
 
             #[cfg(target_os = "macos")]
             {
-                let gl_context = GlContext::Cgl(raw_handle as usize);
+                let context = unsafe { context.get_context_obj().unwrap() };
+                let gl_context = GlContext::Cgl(context as usize);
                 let native_display = NativeDisplay::Unknown;
                 let gl_api = match api {
                     glutin::Api::OpenGl => GlApi::OpenGL3,
