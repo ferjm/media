@@ -86,4 +86,4 @@ path = "../../webrtc"
 path = "render"
 
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
-servo-media-gstreamer-render-unix = { path = "render-unix", features = ["gl-egl", "gl-x11"] }
+servo-media-gstreamer-render-unix = { path = "render-unix"}
