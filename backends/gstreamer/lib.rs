@@ -260,6 +260,7 @@ impl Backend for GStreamerBackend {
                     .collect(),
                 None => vec![],
             };
+            println!("CODECS PARAM {:?} CODECS {:?} ", mime.get_param("codecs"), codecs);
 
             if GSTREAMER_REGISTRY_SCANNER.is_container_type_supported(&mime_type) {
                 if codecs.is_empty() {
