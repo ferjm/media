@@ -241,6 +241,7 @@ impl Backend for GStreamerBackend {
     }
 
     fn can_play_type(&self, media_type: &str) -> SupportsMediaType {
+        println!("can_play_type {:?}", media_type);
         if let Ok(mime) = media_type.parse::<Mime>() {
             // XXX GStreamer is currently not very reliable playing OGG and most of
             //     the media related WPTs uses OGG if we report that we are able to
@@ -272,6 +273,7 @@ impl Backend for GStreamerBackend {
                 }
             }
         }
+        println!("FAILED TO PARSE");
         SupportsMediaType::No
     }
 
