@@ -258,6 +258,7 @@ impl Backend for GStreamerBackend {
     }
 
     fn push_stream_data(&self, stream: &MediaStreamId, data: Vec<u8>) {
+        println!("push_stream_data {:?} bytes to {:?}", stream, data.len());
         GStreamerMediaStream::push_data(stream, data);
     }
 

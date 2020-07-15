@@ -50,8 +50,11 @@ impl MediaStream for GStreamerMediaStream {
     }
 
     fn push_data(&self, data: Vec<u8>) {
+        println!("PPPPPUSSSSH");
         if let Some(source) = self.elements.last() {
+            println!("YEP");
             if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
+                println!("UUU");
                 let buffer = gst::Buffer::from_slice(data);
                 if let Err(error) = appsrc.push_buffer(buffer) {
                     warn!("{}", error);
@@ -237,6 +240,7 @@ impl GStreamerMediaStream {
             .as_mut_any()
             .downcast_mut::<GStreamerMediaStream>()
             .unwrap();
+        println!("Pushing data");
         stream.push_data(data);
     }
 }
