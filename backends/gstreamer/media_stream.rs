@@ -51,7 +51,7 @@ impl MediaStream for GStreamerMediaStream {
 
     fn push_data(&self, data: Vec<u8>) {
         println!("PPPPPUSSSSH");
-        if let Some(source) = self.elements.last() {
+        if let Some(source) = self.elements.first() {
             println!("YEP");
             if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
                 println!("UUU");
