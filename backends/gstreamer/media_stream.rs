@@ -192,13 +192,26 @@ impl GStreamerMediaStream {
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
         let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
-        let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
-        let queue = gst::ElementFactory::make("queue", None).unwrap();
-
-        register_stream(Arc::new(Mutex::new(GStreamerMediaStream::new(
+        let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![source, decodebin, videoconvert, queue],
-        ))))
+            vec![source, decodebin.clone()],
+        )));
+
+        let stream_ = stream.clone();
+        decodebin.connect_pad_added(move |_, _| {
+            let mut stream = stream_.lock().unwrap();
+            let pipeline = stream.pipeline_or_new();
+            let last_element = stream.elements.last();
+            let last_element = last_element.as_ref().unwrap();
+
+            let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
+            let queue = gst::ElementFactory::make("queue", None).unwrap();
+
+            pipeline.add_many(&[&videoconvert, &queue]).unwrap();
+            gst::Element::link_many(&[last_element, &videoconvert, &queue][..]).unwrap();
+        });
+
+        register_stream(stream)
     }
 
     pub fn create_audio() -> MediaStreamId {
