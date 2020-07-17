@@ -30,6 +30,7 @@ pub struct GStreamerMediaStream {
     type_: MediaStreamType,
     elements: Vec<gst::Element>,
     pipeline: Option<gst::Pipeline>,
+    app_source_pipeline: Option<gst::Pipeline>,
 }
 
 impl MediaStream for GStreamerMediaStream {
@@ -72,6 +73,7 @@ impl GStreamerMediaStream {
             type_,
             elements,
             pipeline: None,
+            app_source_pipeline: None,
         }
     }
 
@@ -152,8 +154,6 @@ impl GStreamerMediaStream {
 
         let capsfilter = gst::ElementFactory::make("capsfilter", None).unwrap();
         capsfilter.set_property("caps", self.caps()).unwrap();
-        capsfilter
-        /*
         match self.type_ {
             MediaStreamType::Video => {
                 let vp8enc = gst::ElementFactory::make("vp8enc", None).unwrap();
@@ -189,29 +189,52 @@ impl GStreamerMediaStream {
                 queue3.sync_state_with_parent().unwrap();
                 capsfilter
             }
-        }*/
+        }
     }
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
-        let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
-        let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
-            MediaStreamType::Video,
-            vec![source, decodebin.clone()],
-        )));
+        let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
+        let queue = gst::ElementFactory::make("queue", None).unwrap();
 
-        let stream_ = stream.clone();
-        decodebin.connect_pad_added(move |_, _| {
-            let mut stream = stream_.lock().unwrap();
-            let pipeline = stream.pipeline_or_new();
-            let last_element = stream.elements.last();
-            let last_element = last_element.as_ref().unwrap();
+        // If the source is an appsrc we need to use a decodebin element, which
+        // has a sometimes-pad src pad. We keep a separate pipeline until
+        // the decodebin src pad is available and use a videotestsrc in the meantime.
+        let is_app_source = source.downcast_ref::<AppSrc>().is_some();
+        let stream = if is_app_source {
+            // Create stream with videotestsrc.
+            let fake_source = gst::ElementFactory::make("videotestsrc", None).unwrap();
+            let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
+                MediaStreamType::Video,
+                vec![fake_source, videoconvert, queue],
+            )));
 
-            let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
-            let queue = gst::ElementFactory::make("queue", None).unwrap();
+            let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
+            let stream_ = stream.clone();
+            decodebin.connect_pad_added(move |_, _| {
+                let mut stream = stream_.lock().unwrap();
+                let pipeline = stream.pipeline_or_new();
+                let last_element = stream.elements.last();
+                let last_element = last_element.as_ref().unwrap();
 
-            pipeline.add_many(&[&videoconvert, &queue]).unwrap();
-            gst::Element::link_many(&[last_element, &videoconvert, &queue][..]).unwrap();
-        });
+                let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
+                let queue = gst::ElementFactory::make("queue", None).unwrap();
+
+                pipeline.add_many(&[&videoconvert, &queue]).unwrap();
+                gst::Element::link_many(&[last_element, &videoconvert, &queue][..]).unwrap();
+            });
+
+            let fakesink = gst::ElementFactory::make("fakesink", None).unwrap();
+
+            let pipeline = gst::Pipeline::new(Some("decodebin temporary pipeline"));
+            pipeline.add_many(&[&source, &decodebin, &fakesink]).unwrap();
+
+            stream
+        } else {
+            Arc::new(Mutex::new(GStreamerMediaStream::new(
+                MediaStreamType::Video,
+                vec![source, videoconvert, queue],
+            )))
+        };
 
         register_stream(stream)
     }
