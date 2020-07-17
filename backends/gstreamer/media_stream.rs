@@ -191,12 +191,13 @@ impl GStreamerMediaStream {
     }
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
+        let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
 
         register_stream(Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![source, videoconvert, queue],
+            vec![source, decodebin, videoconvert, queue],
         ))))
     }
 
