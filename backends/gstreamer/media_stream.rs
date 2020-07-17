@@ -152,6 +152,8 @@ impl GStreamerMediaStream {
 
         let capsfilter = gst::ElementFactory::make("capsfilter", None).unwrap();
         capsfilter.set_property("caps", self.caps()).unwrap();
+        capsfilter
+        /*
         match self.type_ {
             MediaStreamType::Video => {
                 let vp8enc = gst::ElementFactory::make("vp8enc", None).unwrap();
@@ -187,7 +189,7 @@ impl GStreamerMediaStream {
                 queue3.sync_state_with_parent().unwrap();
                 capsfilter
             }
-        }
+        }*/
     }
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
