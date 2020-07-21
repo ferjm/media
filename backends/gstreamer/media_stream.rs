@@ -50,6 +50,7 @@ impl MediaStream for GStreamerMediaStream {
     }
 
     fn push_data(&self, data: Vec<u8>) {
+        /*
         if let Some(source) = self.elements.first() {
             if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
                 let buffer = gst::Buffer::from_slice(data);
@@ -57,7 +58,7 @@ impl MediaStream for GStreamerMediaStream {
                     warn!("{}", error);
                 }
             }
-        }
+        }*/
     }
 }
 
@@ -188,6 +189,10 @@ impl GStreamerMediaStream {
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
         let videotestsrc = gst::ElementFactory::make("videotestsrc", None).unwrap();
+        videotestsrc.set_property_from_str("pattern", "ball");
+        videotestsrc
+            .set_property("is-live", &true)
+            .expect("videotestsrc doesn't have expected 'is-live' property");
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
 
