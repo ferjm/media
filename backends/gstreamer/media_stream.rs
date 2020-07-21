@@ -197,7 +197,7 @@ impl GStreamerMediaStream {
 
         register_stream(Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![source, decodebin, videoconvert, queue],
+            vec![videoconvert, queue],
         ))))
     }
 
