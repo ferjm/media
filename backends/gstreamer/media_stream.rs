@@ -30,7 +30,7 @@ pub struct GStreamerMediaStream {
     type_: MediaStreamType,
     elements: Vec<gst::Element>,
     pipeline: Option<gst::Pipeline>,
-    video_pipeline: Option<gst::Pipeline>,
+    video_app_source: Option<AppSrc>,
 }
 
 impl MediaStream for GStreamerMediaStream {
@@ -51,16 +51,11 @@ impl MediaStream for GStreamerMediaStream {
     }
 
     fn push_data(&self, data: Vec<u8>) {
-        println!("PPPPPUSSSSH");
-        for element in self.elements.iter() {
-            println!("YEP");
-            if let Some(appsrc) = element.downcast_ref::<AppSrc>() {
-                println!("UUU");
-                let buffer = gst::Buffer::from_slice(data);
-                if let Err(error) = appsrc.push_buffer(buffer) {
-                    warn!("{}", error);
-                }
-                return;
+        if let Some(ref appsrc) = self.video_app_source {
+            println!("UUU");
+            let buffer = gst::Buffer::from_slice(data);
+            if let Err(error) = appsrc.push_buffer(buffer) {
+                warn!("{}", error);
             }
         }
     }
@@ -73,7 +68,7 @@ impl GStreamerMediaStream {
             type_,
             elements,
             pipeline: None,
-            video_pipeline: None,
+            video_app_source: None,
         }
     }
 
@@ -192,8 +187,8 @@ impl GStreamerMediaStream {
         }
     }
 
-    pub fn set_video_pipeline(&mut self, pipeline: gst::Pipeline) {
-        self.video_pipeline = Some(pipeline);
+    pub fn set_video_app_source(&mut self, source: &AppSrc) {
+        self.video_app_source = Some(source.clone());
     }
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
@@ -232,8 +227,8 @@ impl GStreamerMediaStream {
 
         pipeline.set_state(gst::State::Playing).unwrap();
 
-        {
-            stream.lock().unwrap().set_video_pipeline(pipeline);
+        if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
+            stream.lock().unwrap().set_video_app_source(appsrc);
         }
         register_stream(stream)
     }
