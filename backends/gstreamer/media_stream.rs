@@ -194,13 +194,10 @@ impl GStreamerMediaStream {
         let src = gst::ElementFactory::make("proxysrc", None).unwrap();
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
-        println!("CREATING STREAM");
         let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
             vec![src, videoconvert, queue],
         )));
-
-        println!("CREATED");
 
         let pipeline = gst::Pipeline::new(Some("video pipeline"));
         let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
@@ -208,6 +205,7 @@ impl GStreamerMediaStream {
         let stream_ = stream.clone();
         let video_pipeline = pipeline.clone();
         decodebin.connect_pad_added(move |decodebin, _| {
+            println!("ON PAD ADDED");
             // Append a proxysink to the video pipeline.
             let proxy_sink = gst::ElementFactory::make("proxysink", None).unwrap();
             video_pipeline.add(&proxy_sink).unwrap();
