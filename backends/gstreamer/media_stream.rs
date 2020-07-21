@@ -213,8 +213,8 @@ impl GStreamerMediaStream {
             gst::Element::link_many(&[decodebin, &proxy_sink]).unwrap();
 
             // And connect the video and media stream pipelines.
-            let mut stream = stream_.lock().unwrap();
-            let last_element = stream.encoded();
+            let stream = stream_.lock().unwrap();
+            let last_element = stream.src_element();
             last_element.set_property("proxysink", &proxy_sink).unwrap();
 
             last_element.sync_state_with_parent().unwrap();
