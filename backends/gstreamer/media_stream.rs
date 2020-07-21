@@ -217,6 +217,10 @@ impl GStreamerMediaStream {
             let mut stream = stream_.lock().unwrap();
             let last_element = stream.encoded();
             last_element.set_property("proxysink", &proxy_sink).unwrap();
+
+            last_element.sync_state_with_parent().unwrap();
+
+            println!("CONNECTED");
         });
 
         pipeline.add_many(&[&source, &decodebin]).unwrap();
