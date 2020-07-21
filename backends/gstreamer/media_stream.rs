@@ -191,28 +191,29 @@ impl GStreamerMediaStream {
     }
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
-        let proxysink = gst::ElementFactory::make("proxysink", None).unwrap();
+        let sink = gst::ElementFactory::make("proxysink", None).unwrap();
+        let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
+        let queue = gst::ElementFactory::make("queue", None).unwrap();
         let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![proxysink],
+            vec![sink, videoconvert, queue],
         )));
 
         let pipeline = gst::Pipeline::new(Some("video pipeline"));
         let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
 
         let stream_ = stream.clone();
-        decodebin
-            .connect("pad_added", false, move |values| {
-                let mut stream = stream_.lock().unwrap();
-                let pipeline = stream.pipeline_or_new();
-                let last_element = stream.encoded();
-                let sink = gst::ElementFactory::make("proxysink", None).unwrap();
-                pipeline.add(&sink).unwrap();
-                gst::Element::link_many(&[&last_element, &sink][..]).unwrap();
-                sink.sync_state_with_parent().unwrap();
-                None
-            })
-            .unwrap();
+        let video_pipeline = pipeline.clone();
+        decodebin.connect_pad_added(move |decodebin, _| {
+            // Append a proxysrc to video pipeline.
+            let proxy_src = gst::ElementFactory::make("proxysrc", None).unwrap();
+            video_pipeline.add(&proxy_src).unwrap();
+            gst::Element::link_many(&[decodebin, &proxy_src]).unwrap();
+
+            let mut stream = stream_.lock().unwrap();
+            let last_element = stream.encoded();
+            proxy_src.set_property("proxysink", &last_element).unwrap();
+        });
 
         pipeline.add_many(&[&source, &decodebin]).unwrap();
         gst::Element::link_many(&[&source, &decodebin]).unwrap();
