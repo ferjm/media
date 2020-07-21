@@ -191,13 +191,13 @@ impl GStreamerMediaStream {
     }
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
-        let sink = gst::ElementFactory::make("proxysink", None).unwrap();
+        let src = gst::ElementFactory::make("proxysrc", None).unwrap();
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
         println!("CREATING STREAM");
         let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![sink, videoconvert, queue],
+            vec![src, videoconvert, queue],
         )));
 
         println!("CREATED");
@@ -208,15 +208,15 @@ impl GStreamerMediaStream {
         let stream_ = stream.clone();
         let video_pipeline = pipeline.clone();
         decodebin.connect_pad_added(move |decodebin, _| {
-            /* // Append a proxysrc to the video pipeline.
-            let proxy_src = gst::ElementFactory::make("proxysrc", None).unwrap();
-            video_pipeline.add(&proxy_src).unwrap();
-            gst::Element::link_many(&[decodebin, &proxy_src]).unwrap();
+            // Append a proxysink to the video pipeline.
+            let proxy_sink = gst::ElementFactory::make("proxysink", None).unwrap();
+            video_pipeline.add(&proxy_sink).unwrap();
+            gst::Element::link_many(&[decodebin, &proxy_sink]).unwrap();
 
             // And connect the video and media stream pipelines.
             let mut stream = stream_.lock().unwrap();
             let last_element = stream.encoded();
-            proxy_src.set_property("proxysink", &last_element).unwrap();*/
+            last_element.set_property("proxysink", &proxy_sink).unwrap();
         });
 
         pipeline.add_many(&[&source, &decodebin]).unwrap();
