@@ -125,7 +125,7 @@ mod imp {
             ::set_element_flags(src, gst::ElementFlags::SOURCE);
 
             let proxy_pad = src_pad.get_internal().unwrap();
-            src_pad.set_active(true).expect("Could not active pad");
+            src_pad.set_active(true).expect("Could not set active pad");
             self.flow_combiner.lock().unwrap().add_pad(&proxy_pad);
             let combiner = self.flow_combiner.clone();
             proxy_pad.set_chain_function(move |pad, parent, buffer| {

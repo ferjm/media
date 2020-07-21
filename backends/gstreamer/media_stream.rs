@@ -191,14 +191,35 @@ impl GStreamerMediaStream {
     }
 
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
-        let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
-        let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
-        let queue = gst::ElementFactory::make("queue", None).unwrap();
-
-        register_stream(Arc::new(Mutex::new(GStreamerMediaStream::new(
+        let proxysink = gst::ElementFactory::make("proxysink", None).unwrap();
+        let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![videoconvert, queue],
-        ))))
+            vec![proxysink],
+        )));
+
+        let pipeline = gst::Pipeline::new(Some("video pipeline"));
+        let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
+
+        let stream_ = stream.clone();
+        decodebin
+            .connect("pad_added", false, move |values| {
+                let mut stream = stream_.lock().unwrap();
+                let pipeline = stream.pipeline_or_new();
+                let last_element = stream.encoded();
+                let sink = gst::ElementFactory::make("proxysink", None).unwrap();
+                pipeline.add(&sink).unwrap();
+                gst::Element::link_many(&[&last_element, &sink][..]).unwrap();
+                sink.sync_state_with_parent().unwrap();
+                None
+            })
+            .unwrap();
+
+        pipeline.add_many(&[&source, &decodebin]).unwrap();
+        gst::Element::link_many(&[&source, &decodebin]).unwrap();
+
+        pipeline.set_state(gst::State::Playing).unwrap();
+
+        register_stream(stream)
     }
 
     pub fn create_audio() -> MediaStreamId {
