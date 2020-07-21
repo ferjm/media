@@ -30,6 +30,7 @@ pub struct GStreamerMediaStream {
     type_: MediaStreamType,
     elements: Vec<gst::Element>,
     pipeline: Option<gst::Pipeline>,
+    video_pipeline: Option<gst::Pipeline>,
 }
 
 impl MediaStream for GStreamerMediaStream {
@@ -72,6 +73,7 @@ impl GStreamerMediaStream {
             type_,
             elements,
             pipeline: None,
+            video_pipeline: None,
         }
     }
 
@@ -190,6 +192,10 @@ impl GStreamerMediaStream {
         }
     }
 
+    pub fn set_video_pipeline(&mut self, pipeline: gst::Pipeline) {
+        self.video_pipeline = Some(pipeline);
+    }
+
     pub fn create_video_from(source: gst::Element) -> MediaStreamId {
         let src = gst::ElementFactory::make("proxysrc", None).unwrap();
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
@@ -226,6 +232,9 @@ impl GStreamerMediaStream {
 
         pipeline.set_state(gst::State::Playing).unwrap();
 
+        {
+            stream.lock().unwrap().set_video_pipeline(pipeline);
+        }
         register_stream(stream)
     }
 
