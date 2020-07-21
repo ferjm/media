@@ -50,7 +50,7 @@ impl MediaStream for GStreamerMediaStream {
     }
 
     fn push_data(&self, data: Vec<u8>) {
-        if let Some(source) = self.elements.last() {
+        if let Some(source) = self.elements.first() {
             if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
                 let buffer = gst::Buffer::from_slice(data);
                 if let Err(error) = appsrc.push_buffer(buffer) {
