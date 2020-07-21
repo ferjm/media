@@ -222,8 +222,9 @@ impl GStreamerMediaStream {
             println!("CONNECTED");
         });
 
-        pipeline.add_many(&[&source, &decodebin]).unwrap();
-        gst::Element::link_many(&[&source, &decodebin]).unwrap();
+        let videotestsrc = gst::ElementFactory::make("videotestsrc", None).unwrap();
+        pipeline.add_many(&[&videotestsrc, &decodebin]).unwrap();
+        gst::Element::link_many(&[&videotestsrc, &decodebin]).unwrap();
 
         pipeline.set_state(gst::State::Playing).unwrap();
 
