@@ -218,7 +218,7 @@ impl GStreamerMediaStream {
             let last_element = stream.src_element();
             last_element.set_property("proxysink", &proxy_sink).unwrap();
 
-            last_element.sync_state_with_parent().unwrap();
+            proxy_sink.sync_state_with_parent().unwrap();
 
             println!("CONNECTED");
         });
