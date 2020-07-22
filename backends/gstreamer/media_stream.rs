@@ -193,7 +193,9 @@ impl GStreamerMediaStream {
     }
 
     pub fn create_video_from(source: gst::Element, size: Option<Size2D<u32>>) -> MediaStreamId {
-        let src = gst::ElementFactory::make("proxysrc", None).unwrap();
+        let video_proxy_src = gst::ElementFactory::make("proxysrc", None).unwrap();
+
+        let mut elements = vec![video_proxy_src];
 
         if let Some(size) = size {
             let caps = gst::Caps::builder("video/x-raw")
@@ -205,15 +207,20 @@ impl GStreamerMediaStream {
             source
                 .set_property("caps", &caps)
                 .expect("source doesn't have expected 'caps' property");
-            src.set_property("caps", &caps)
-                .expect("proxysrc doesn't have expected 'caps' property");
+            let capsfilter = gst::ElementFactory::make("capsfilter", None).unwrap();
+            capsfilter
+                .set_property("caps", &caps)
+                .expect("capsfilter doesn't have expected 'caps' property");
+            elements.push(capsfilter);
         }
 
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
+        elements.push(videoconvert);
+        elements.push(queue);
         let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![src, videoconvert, queue],
+            elements,
         )));
 
         let pipeline = gst::Pipeline::new(Some("video pipeline"));
