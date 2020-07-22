@@ -102,7 +102,7 @@ impl GStreamerMediaStream {
     }
 
     pub fn src_element(&self) -> gst::Element {
-        self.elements.last().unwrap().clone()
+        self.elements.first().unwrap().clone()
     }
 
     pub fn attach_to_pipeline(&mut self, pipeline: &gst::Pipeline) {
