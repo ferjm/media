@@ -194,11 +194,26 @@ impl GStreamerMediaStream {
 
     pub fn create_video_from(source: gst::Element, size: Option<Size2D<u32>>) -> MediaStreamId {
         let src = gst::ElementFactory::make("proxysrc", None).unwrap();
-        //let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
+
+        if let Some(size) = size {
+            let caps = gst::Caps::builder("video/x-raw")
+                .field("format", &gst_video::VideoFormat::Bgra.to_string())
+                .field("pixel-aspect-ratio", &gst::Fraction::from((1, 1)))
+                .field("width", &size.width)
+                .field("height", &size.height)
+                .build();
+            source
+                .set_property("caps", &caps)
+                .expect("source doesn't have expected 'caps' property");
+            src.set_property("caps", &caps)
+                .expect("proxysrc doesn't have expected 'caps' property");
+        }
+
+        let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
         let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![src, /*videoconvert,*/ queue],
+            vec![src, videoconvert, queue],
         )));
 
         let pipeline = gst::Pipeline::new(Some("video pipeline"));
@@ -222,18 +237,6 @@ impl GStreamerMediaStream {
 
             println!("CONNECTED");
         });
-
-        if let Some(size) = size {
-            let caps = gst::Caps::builder("video/x-raw")
-                .field("format", &gst_video::VideoFormat::Bgra.to_string())
-                .field("pixel-aspect-ratio", &gst::Fraction::from((1, 1)))
-                .field("width", &size.width)
-                .field("height", &size.height)
-                .build();
-            source
-                .set_property("caps", &caps)
-                .expect("source doesn't have expected 'caps' property");
-        }
 
         pipeline.add_many(&[&source, &decodebin]).unwrap();
         gst::Element::link_many(&[&source, &decodebin]).unwrap();
