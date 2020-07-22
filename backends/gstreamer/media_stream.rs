@@ -194,11 +194,11 @@ impl GStreamerMediaStream {
 
     pub fn create_video_from(source: gst::Element, size: Option<Size2D<u32>>) -> MediaStreamId {
         let src = gst::ElementFactory::make("proxysrc", None).unwrap();
-        let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
+        //let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
         let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![src, videoconvert, queue],
+            vec![src, /*videoconvert,*/ queue],
         )));
 
         let pipeline = gst::Pipeline::new(Some("video pipeline"));
