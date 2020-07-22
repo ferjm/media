@@ -32,6 +32,7 @@ pub struct GStreamerMediaStream {
     type_: MediaStreamType,
     elements: Vec<gst::Element>,
     pipeline: Option<gst::Pipeline>,
+    video_app_source: Option<AppSrc>,
 }
 
 impl MediaStream for GStreamerMediaStream {
@@ -52,12 +53,10 @@ impl MediaStream for GStreamerMediaStream {
     }
 
     fn push_data(&self, data: Vec<u8>) {
-        if let Some(source) = self.elements.first() {
-            if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
-                let buffer = gst::Buffer::from_slice(data);
-                if let Err(error) = appsrc.push_buffer(buffer) {
-                    warn!("{}", error);
-                }
+        if let Some(ref appsrc) = self.video_app_source {
+            let buffer = gst::Buffer::from_slice(data);
+            if let Err(error) = appsrc.push_buffer(buffer) {
+                warn!("{}", error);
             }
         }
     }
@@ -70,6 +69,7 @@ impl GStreamerMediaStream {
             type_,
             elements,
             pipeline: None,
+            video_app_source: None,
         }
     }
 
@@ -188,9 +188,40 @@ impl GStreamerMediaStream {
         }
     }
 
+    pub fn set_video_app_source(&mut self, source: &AppSrc) {
+        self.video_app_source = Some(source.clone());
+    }
+
     pub fn create_video_from(source: gst::Element, size: Option<Size2D<u32>>) -> MediaStreamId {
+        let src = gst::ElementFactory::make("proxysrc", None).unwrap();
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
+        let stream = Arc::new(Mutex::new(GStreamerMediaStream::new(
+            MediaStreamType::Video,
+            vec![src, videoconvert, queue],
+        )));
+
+        let pipeline = gst::Pipeline::new(Some("video pipeline"));
+        let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
+
+        let stream_ = stream.clone();
+        let video_pipeline = pipeline.clone();
+        decodebin.connect_pad_added(move |decodebin, _| {
+            println!("ON PAD ADDED");
+            // Append a proxysink to the video pipeline.
+            let proxy_sink = gst::ElementFactory::make("proxysink", None).unwrap();
+            video_pipeline.add(&proxy_sink).unwrap();
+            gst::Element::link_many(&[decodebin, &proxy_sink]).unwrap();
+
+            // And connect the video and media stream pipelines.
+            let mut stream = stream_.lock().unwrap();
+            let last_element = stream.encoded();
+            last_element.set_property("proxysink", &proxy_sink).unwrap();
+
+            last_element.sync_state_with_parent().unwrap();
+
+            println!("CONNECTED");
+        });
 
         if let Some(size) = size {
             let caps = gst::Caps::builder("video/x-raw")
@@ -203,10 +234,16 @@ impl GStreamerMediaStream {
                 .set_property("caps", &caps)
                 .expect("source doesn't have expected 'caps' property");
         }
-        register_stream(Arc::new(Mutex::new(GStreamerMediaStream::new(
-            MediaStreamType::Video,
-            vec![source, videoconvert, queue],
-        ))))
+
+        pipeline.add_many(&[&source, &decodebin]).unwrap();
+        gst::Element::link_many(&[&source, &decodebin]).unwrap();
+
+        pipeline.set_state(gst::State::Playing).unwrap();
+
+        if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
+            stream.lock().unwrap().set_video_app_source(appsrc);
+        }
+        register_stream(stream)
     }
 
     pub fn create_audio() -> MediaStreamId {
