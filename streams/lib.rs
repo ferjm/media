@@ -34,7 +34,7 @@ pub enum MediaSource {
     Device,
     // The media stream source is the client application.
     // i.e. captureStream
-    App(Size2D<u64>),
+    App(Size2D<u32>),
 }
 
 /// This isn't part of the webrtc spec; it's a leaky abstaction while media streams

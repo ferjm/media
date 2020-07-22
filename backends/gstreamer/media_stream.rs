@@ -188,7 +188,7 @@ impl GStreamerMediaStream {
         }
     }
 
-    pub fn create_video_from(source: gst::Element, size: Option<Size2D<u64>>) -> MediaStreamId {
+    pub fn create_video_from(source: gst::Element, size: Option<Size2D<u32>>) -> MediaStreamId {
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
 
