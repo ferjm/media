@@ -206,6 +206,11 @@ impl GStreamerMediaStream {
         )));
 
         let pipeline = gst::Pipeline::new(Some("video pipeline"));
+        let clock = gst::SystemClock::obtain();
+        pipeline.set_start_time(gst::ClockTime::none());
+        pipeline.set_base_time(*BACKEND_BASE_TIME);
+        pipeline.use_clock(Some(&clock));
+
         let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
 
         let stream_ = stream.clone();
