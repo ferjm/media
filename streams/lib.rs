@@ -1,3 +1,4 @@
+extern crate euclid;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
@@ -7,6 +8,7 @@ pub mod capture;
 pub mod device_monitor;
 pub mod registry;
 
+use euclid::default::Size2D;
 use std::any::Any;
 
 pub use registry::*;
@@ -32,7 +34,7 @@ pub enum MediaSource {
     Device,
     // The media stream source is the client application.
     // i.e. captureStream
-    App,
+    App(Size2D<u64>),
 }
 
 /// This isn't part of the webrtc spec; it's a leaky abstaction while media streams

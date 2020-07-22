@@ -1,6 +1,7 @@
 #![feature(nll)]
 extern crate boxfnonce;
 extern crate byte_slice_cast;
+extern crate euclid;
 extern crate mime;
 
 extern crate glib_sys as glib_ffi;

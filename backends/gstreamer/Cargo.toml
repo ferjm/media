@@ -14,6 +14,7 @@ path = "lib.rs"
 
 [dependencies]
 boxfnonce = "0.1.0"
+euclid = "0.20"
 mime = "0.3.13"
 log = "0.4"
 

@@ -1,4 +1,5 @@
 use crate::media_stream::GStreamerMediaStream;
+
 use gst;
 use gst::prelude::*;
 use servo_media_streams::capture::*;
@@ -155,17 +156,19 @@ fn create_input_stream(
     let devices = GstMediaDevices::new();
     devices
         .get_track(stream_type == MediaStreamType::Video, constraint_set)
-        .map(|track| {
-            let f = match stream_type {
-                MediaStreamType::Audio => GStreamerMediaStream::create_audio_from,
-                MediaStreamType::Video => GStreamerMediaStream::create_video_from,
-            };
-            f(match source {
+        .map(|track| match stream_type {
+            MediaStreamType::Audio => GStreamerMediaStream::create_audio_from(match source {
                 MediaSource::Device => track.element,
-                MediaSource::App => {
-                    gst::ElementFactory::make("appsrc", None).expect("appsrc creation failed")
+                MediaSource::App(_) => unimplemented!(),
+            }),
+            MediaStreamType::Video => match source {
+                MediaSource::Device => GStreamerMediaStream::create_video_from(track.element, None),
+                MediaSource::App(size) => {
+                    let appsrc =
+                        gst::ElementFactory::make("appsrc", None).expect("appsrc creation failed");
+                    GStreamerMediaStream::create_video_from(appsrc, Some(size))
                 }
-            })
+            },
         })
 }
 

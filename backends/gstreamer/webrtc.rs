@@ -744,7 +744,7 @@ fn on_incoming_decodebin_stream(
 
     let (stream, ty) = if name == "video" {
         (
-            GStreamerMediaStream::create_video_from(proxy_src),
+            GStreamerMediaStream::create_video_from(proxy_src, None),
             MediaStreamType::Video,
         )
     } else {

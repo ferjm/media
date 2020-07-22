@@ -9,6 +9,7 @@ name = "servo_media_streams"
 path = "lib.rs"
 
 [dependencies]
+euclid = "0.20"
 lazy_static = "1.0"
 serde = "1.0.66"
 uuid = { version = "0.8", features = ["v4", "serde"] }

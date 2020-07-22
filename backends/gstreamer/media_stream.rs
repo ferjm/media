@@ -1,4 +1,6 @@
 use super::BACKEND_BASE_TIME;
+
+use euclid::default::Size2D;
 use glib::prelude::*;
 use gst;
 use gst::prelude::*;
@@ -50,7 +52,6 @@ impl MediaStream for GStreamerMediaStream {
     }
 
     fn push_data(&self, data: Vec<u8>) {
-        /*
         if let Some(source) = self.elements.first() {
             if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
                 let buffer = gst::Buffer::from_slice(data);
@@ -58,7 +59,7 @@ impl MediaStream for GStreamerMediaStream {
                     warn!("{}", error);
                 }
             }
-        }*/
+        }
     }
 }
 
@@ -136,7 +137,7 @@ impl GStreamerMediaStream {
             .set_property("is-live", &true)
             .expect("videotestsrc doesn't have expected 'is-live' property");
 
-        Self::create_video_from(videotestsrc)
+        Self::create_video_from(videotestsrc, None)
     }
 
     /// Attaches encoding adapters to the stream, returning the source element
@@ -187,18 +188,24 @@ impl GStreamerMediaStream {
         }
     }
 
-    pub fn create_video_from(source: gst::Element) -> MediaStreamId {
-        let videotestsrc = gst::ElementFactory::make("videotestsrc", None).unwrap();
-        videotestsrc.set_property_from_str("pattern", "ball");
-        videotestsrc
-            .set_property("is-live", &true)
-            .expect("videotestsrc doesn't have expected 'is-live' property");
+    pub fn create_video_from(source: gst::Element, size: Option<Size2D<u64>>) -> MediaStreamId {
         let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
         let queue = gst::ElementFactory::make("queue", None).unwrap();
 
+        if let Some(size) = size {
+            let caps = gst::Caps::builder("video/x-raw")
+                .field("format", &gst_video::VideoFormat::Bgra.to_string())
+                .field("pixel-aspect-ratio", &gst::Fraction::from((1, 1)))
+                .field("width", &size.width)
+                .field("height", &size.height)
+                .build();
+            source
+                .set_property("caps", &caps)
+                .expect("source doesn't have expected 'caps' property");
+        }
         register_stream(Arc::new(Mutex::new(GStreamerMediaStream::new(
             MediaStreamType::Video,
-            vec![videotestsrc, videoconvert, queue],
+            vec![source, videoconvert, queue],
         ))))
     }
 
@@ -230,7 +237,7 @@ impl GStreamerMediaStream {
         proxy_src.set_property("proxysink", &proxy_sink).unwrap();
         let stream = match ty {
             MediaStreamType::Audio => Self::create_audio_from(proxy_src),
-            MediaStreamType::Video => Self::create_video_from(proxy_src),
+            MediaStreamType::Video => Self::create_video_from(proxy_src, None),
         };
 
         (stream, GstreamerMediaSocket { proxy_sink })
