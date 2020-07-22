@@ -102,6 +102,10 @@ impl GStreamerMediaStream {
     }
 
     pub fn src_element(&self) -> gst::Element {
+        self.elements.last().unwrap().clone()
+    }
+
+    pub fn first_element(&self) -> gst::Element {
         self.elements.first().unwrap().clone()
     }
 
@@ -215,8 +219,10 @@ impl GStreamerMediaStream {
 
             // And connect the video and media stream pipelines.
             let stream = stream_.lock().unwrap();
-            let last_element = stream.src_element();
-            last_element.set_property("proxysink", &proxy_sink).unwrap();
+            let first_element = stream.first_element();
+            first_element
+                .set_property("proxysink", &proxy_sink)
+                .unwrap();
 
             proxy_sink.sync_state_with_parent().unwrap();
 
