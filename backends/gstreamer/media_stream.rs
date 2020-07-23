@@ -250,7 +250,7 @@ impl GStreamerMediaStream {
         pipeline.set_state(gst::State::Playing).unwrap();
 
         if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
-            appsrc.set_property_format(gst::Format::Bytes);
+            appsrc.set_property_format(gst::Format::Time);
             stream.lock().unwrap().set_video_app_source(appsrc);
         }
         register_stream(stream)
