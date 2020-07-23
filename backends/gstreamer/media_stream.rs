@@ -244,15 +244,19 @@ impl GStreamerMediaStream {
                 .expect("source doesn't have expected 'caps' property");
         }
 
+        if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
+            appsrc.set_property_format(gst::Format::Time);
+            stream.lock().unwrap().set_video_app_source(appsrc);
+        }
+
         pipeline.add_many(&[&source, &decodebin]).unwrap();
         gst::Element::link_many(&[&source, &decodebin]).unwrap();
 
         pipeline.set_state(gst::State::Playing).unwrap();
 
-        if let Some(appsrc) = source.downcast_ref::<AppSrc>() {
-            appsrc.set_property_format(gst::Format::Time);
-            stream.lock().unwrap().set_video_app_source(appsrc);
-        }
+        let bin_ref: gst::Bin = pipeline.upcast();
+        bin_ref.debug_to_dot_file(gst::DebugGraphDetails::all(), "VideoPipeline_PLAYING");
+
         register_stream(stream)
     }
 
