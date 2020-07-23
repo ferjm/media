@@ -161,24 +161,19 @@ impl GStreamerMediaStream {
                     .set_property("deadline", &1i64)
                     .expect("vp8enc doesn't have expected 'deadline' property");
 
-                //let rtpvp8pay = gst::ElementFactory::make("rtpvp8pay", None).unwrap();
+                let rtpvp8pay = gst::ElementFactory::make("rtpvp8pay", None).unwrap();
                 let queue2 = gst::ElementFactory::make("queue", None).unwrap();
 
                 pipeline
-                    .add_many(&[&vp8enc /*&rtpvp8pay, &queue2, &capsfilter*/])
+                    .add_many(&[&vp8enc, &rtpvp8pay, &queue2, &capsfilter])
                     .unwrap();
-                gst::Element::link_many(&[
-                    &src, &vp8enc,
-                    /*&rtpvp8pay, &queue2,
-                    &capsfilter,*/
-                ])
-                .unwrap();
+                gst::Element::link_many(&[&src, &vp8enc, &rtpvp8pay, &queue2, &capsfilter])
+                    .unwrap();
                 vp8enc.sync_state_with_parent().unwrap();
-                //rtpvp8pay.sync_state_with_parent().unwrap();
-                //queue2.sync_state_with_parent().unwrap();
-                //capsfilter.sync_state_with_parent().unwrap();
-                //capsfilter
-                vp8enc
+                rtpvp8pay.sync_state_with_parent().unwrap();
+                queue2.sync_state_with_parent().unwrap();
+                capsfilter.sync_state_with_parent().unwrap();
+                capsfilter
             }
             MediaStreamType::Audio => {
                 let opusenc = gst::ElementFactory::make("opusenc", None).unwrap();
@@ -221,7 +216,6 @@ impl GStreamerMediaStream {
         let stream_ = stream.clone();
         let video_pipeline = pipeline.clone();
         decodebin.connect_pad_added(move |decodebin, _| {
-            println!("ON PAD ADDED");
             // Append a proxysink to the video pipeline.
             let proxy_sink = gst::ElementFactory::make("proxysink", None).unwrap();
             video_pipeline.add(&proxy_sink).unwrap();
@@ -236,8 +230,6 @@ impl GStreamerMediaStream {
 
             proxy_sink.sync_state_with_parent().unwrap();
             decodebin.sync_state_with_parent().unwrap();
-
-            println!("CONNECTED");
         });
 
         if let Some(size) = size {
