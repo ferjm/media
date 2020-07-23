@@ -161,16 +161,21 @@ impl GStreamerMediaStream {
                     .set_property("deadline", &1i64)
                     .expect("vp8enc doesn't have expected 'deadline' property");
 
-                let rtpvp8pay = gst::ElementFactory::make("rtpvp8pay", None).unwrap();
+                //let rtpvp8pay = gst::ElementFactory::make("rtpvp8pay", None).unwrap();
                 let queue2 = gst::ElementFactory::make("queue", None).unwrap();
 
                 pipeline
-                    .add_many(&[&vp8enc, &rtpvp8pay, &queue2, &capsfilter])
+                    .add_many(&[&vp8enc, /*&rtpvp8pay,*/ &queue2, &capsfilter])
                     .unwrap();
-                gst::Element::link_many(&[&src, &vp8enc, &rtpvp8pay, &queue2, &capsfilter])
-                    .unwrap();
+                gst::Element::link_many(&[
+                    &src,
+                    &vp8enc,
+                    /*&rtpvp8pay,*/ &queue2,
+                    &capsfilter,
+                ])
+                .unwrap();
                 vp8enc.sync_state_with_parent().unwrap();
-                rtpvp8pay.sync_state_with_parent().unwrap();
+                //rtpvp8pay.sync_state_with_parent().unwrap();
                 queue2.sync_state_with_parent().unwrap();
                 capsfilter.sync_state_with_parent().unwrap();
                 capsfilter
@@ -230,6 +235,7 @@ impl GStreamerMediaStream {
                 .unwrap();
 
             proxy_sink.sync_state_with_parent().unwrap();
+            decodebin.sync_state_with_parent().unwrap();
 
             println!("CONNECTED");
         });
