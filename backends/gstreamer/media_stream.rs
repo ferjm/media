@@ -234,7 +234,7 @@ impl GStreamerMediaStream {
 
         if let Some(size) = size {
             let caps = gst::Caps::builder("video/x-raw")
-                .field("format", &gst_video::VideoFormat::Bgra.to_string())
+                .field("format", &gst_video::VideoFormat::Rgba.to_string())
                 .field("pixel-aspect-ratio", &gst::Fraction::from((1, 1)))
                 .field("width", &(size.width as i32))
                 .field("height", &(size.height as i32))
