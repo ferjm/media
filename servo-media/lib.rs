@@ -26,6 +26,11 @@ pub struct ServoMedia(Box<dyn Backend>);
 static INITIALIZER: Once = Once::new();
 static mut INSTANCE: *mut Mutex<Option<Arc<ServoMedia>>> = std::ptr::null_mut();
 
+#[derive(Debug)]
+pub enum ServoMediaError {
+    Backend(String),
+}
+
 pub trait BackendInit {
     fn init() -> Box<dyn Backend>;
 }
@@ -49,6 +54,7 @@ pub trait Backend: Send + Sync {
     ) -> (Box<dyn MediaSocket>, MediaStreamId);
     fn create_audioinput_stream(&self, set: MediaTrackConstraintSet) -> Option<MediaStreamId>;
     fn create_videoinput_stream(&self, set: MediaTrackConstraintSet) -> Option<MediaStreamId>;
+    fn create_client_capture_stream(&self) -> Result<MediaStreamId, ServoMediaError>;
     fn create_audio_context(
         &self,
         id: &ClientContextId,

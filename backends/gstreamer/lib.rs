@@ -51,7 +51,7 @@ use ipc_channel::ipc::IpcSender;
 use media_stream::GStreamerMediaStream;
 use mime::Mime;
 use registry_scanner::GSTREAMER_REGISTRY_SCANNER;
-use servo_media::{Backend, BackendInit, SupportsMediaType};
+use servo_media::{Backend, BackendInit, ServoMediaError, SupportsMediaType};
 use servo_media_audio::context::{AudioContext, AudioContextOptions};
 use servo_media_audio::decoder::AudioDecoder;
 use servo_media_audio::sink::AudioSinkError;
@@ -250,6 +250,11 @@ impl Backend for GStreamerBackend {
             return Some(self.create_videostream());
         }
         media_capture::from_device::create_videoinput_stream(set)
+    }
+
+    fn create_client_capture_stream(&self) -> Result<MediaStreamId, ServoMediaError> {
+        media_capture::from_client::create_client_capture_stream()
+            .map_err(|e| ServoMediaError::Backend(e.to_string()))
     }
 
     fn can_play_type(&self, media_type: &str) -> SupportsMediaType {

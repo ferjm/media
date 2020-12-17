@@ -9,7 +9,7 @@ extern crate servo_media_webrtc;
 
 use boxfnonce::SendBoxFnOnce;
 use ipc_channel::ipc::IpcSender;
-use servo_media::{Backend, BackendInit, SupportsMediaType};
+use servo_media::{Backend, BackendInit, ServoMediaError, SupportsMediaType};
 use servo_media_audio::block::{Block, Chunk};
 use servo_media_audio::context::{AudioContext, AudioContextOptions};
 use servo_media_audio::decoder::{AudioDecoder, AudioDecoderCallbacks, AudioDecoderOptions};
@@ -78,6 +78,10 @@ impl Backend for DummyBackend {
         Some(register_stream(Arc::new(Mutex::new(DummyMediaStream {
             id: MediaStreamId::new(),
         }))))
+    }
+
+    fn create_client_capture_stream(&self) -> Result<MediaStreamId, ServoMediaError> {
+        Ok(MediaStreamId::new())
     }
 
     fn create_player(
