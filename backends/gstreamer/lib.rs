@@ -242,7 +242,7 @@ impl Backend for GStreamerBackend {
             // XXXManishearth we should caps filter this
             return Some(self.create_audiostream());
         }
-        media_capture::create_audioinput_stream(set)
+        media_capture::from_device::create_audioinput_stream(set)
     }
 
     fn create_videoinput_stream(&self, set: MediaTrackConstraintSet) -> Option<MediaStreamId> {
@@ -250,7 +250,7 @@ impl Backend for GStreamerBackend {
             // XXXManishearth we should caps filter this
             return Some(self.create_videostream());
         }
-        media_capture::create_videoinput_stream(set)
+        media_capture::from_device::create_videoinput_stream(set)
     }
 
     fn can_play_type(&self, media_type: &str) -> SupportsMediaType {
