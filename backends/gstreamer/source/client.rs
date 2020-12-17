@@ -365,7 +365,7 @@ mod imp {
 
         fn set_uri(&self, _element: &gst::URIHandler, uri: &str) -> Result<(), glib::Error> {
             if let Ok(uri) = Url::parse(uri) {
-                if uri.scheme() == "ServoMediaClientSrc" {
+                if uri.scheme() == "servosrc" {
                     return Ok(());
                 }
             }

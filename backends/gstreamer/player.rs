@@ -522,7 +522,7 @@ impl GStreamerPlayer {
         let uri = match self.stream_type {
             StreamType::Stream => {
                 register_servo_media_stream_src().map_err(|_| {
-                    PlayerError::Backend("servomediastreamsrc registration error".to_owned())
+                    PlayerError::Backend("ServoMediaStreamSrc registration error".to_owned())
                 })?;
                 "mediastream://".to_value()
             }
@@ -530,7 +530,7 @@ impl GStreamerPlayer {
                 register_servo_media_client_src().map_err(|_| {
                     PlayerError::Backend("ServoMediaClientSrc registration error".to_owned())
                 })?;
-                "ServoMediaClientSrc://".to_value()
+                "servosrc://".to_value()
             }
         };
         player
