@@ -28,7 +28,10 @@ static mut INSTANCE: *mut Mutex<Option<Arc<ServoMedia>>> = std::ptr::null_mut();
 
 #[derive(Debug)]
 pub enum ServoMediaError {
+    /// Specific Backend implementation error.
     Backend(String),
+    /// The given MediaStreamId is not registered or invalid.
+    UnknownStream,
 }
 
 pub trait BackendInit {
@@ -55,6 +58,11 @@ pub trait Backend: Send + Sync {
     fn create_audioinput_stream(&self, set: MediaTrackConstraintSet) -> Option<MediaStreamId>;
     fn create_videoinput_stream(&self, set: MediaTrackConstraintSet) -> Option<MediaStreamId>;
     fn create_client_capture_stream(&self) -> Result<MediaStreamId, ServoMediaError>;
+    fn push_client_capture_stream_data(
+        &self,
+        stream_id: &MediaStreamId,
+        data: Vec<u8>,
+    ) -> Result<(), ServoMediaError>;
     fn create_audio_context(
         &self,
         id: &ClientContextId,

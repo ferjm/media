@@ -257,6 +257,21 @@ impl Backend for GStreamerBackend {
             .map_err(|e| ServoMediaError::Backend(e.to_string()))
     }
 
+    fn push_client_capture_stream_data(
+        &self,
+        stream_id: &MediaStreamId,
+        data: Vec<u8>,
+    ) -> Result<(), ServoMediaError> {
+        let source = match media_capture::from_client::get_capture_source(stream_id) {
+            Some(source) => source,
+            None => return Err(ServoMediaError::UnknownStream),
+        };
+        source
+            .push_data(data)
+            .map(|_| ())
+            .map_err(|e| ServoMediaError::Backend(e.to_string()))
+    }
+
     fn can_play_type(&self, media_type: &str) -> SupportsMediaType {
         if let Ok(mime) = media_type.parse::<Mime>() {
             // XXX GStreamer is currently not very reliable playing OGG and most of

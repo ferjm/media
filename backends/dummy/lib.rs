@@ -84,6 +84,14 @@ impl Backend for DummyBackend {
         Ok(MediaStreamId::new())
     }
 
+    fn push_client_capture_stream_data(
+        &self,
+        _: &MediaStreamId,
+        _: Vec<u8>,
+    ) -> Result<(), ServoMediaError> {
+        Ok(())
+    }
+
     fn create_player(
         &self,
         _id: &ClientContextId,
