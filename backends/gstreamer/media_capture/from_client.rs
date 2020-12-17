@@ -1,6 +1,7 @@
+use glib::Cast;
 use media_stream::GStreamerMediaStream;
 use servo_media_streams::registry::MediaStreamId;
-use source::client::register_servo_media_client_src;
+use source::client::{register_servo_media_client_src, ServoMediaClientSrc};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -34,11 +35,20 @@ unsafe impl Send for ClientCaptureSource {}
 unsafe impl Sync for ClientCaptureSource {}
 
 impl ClientCaptureSource {
-    fn new() -> ClientCaptureSource {
+    pub fn new() -> ClientCaptureSource {
         ClientCaptureSource {
             source: gst::ElementFactory::make("ServoMediaClientSrc", None).unwrap(),
             id: None,
         }
+    }
+
+    pub fn push_data(&self, data: Vec<u8>) -> Result<gst::FlowSuccess, gst::FlowError> {
+        let source = self
+            .source
+            .clone()
+            .downcast::<ServoMediaClientSrc>()
+            .expect("ServoMediaClientSrc downcast");
+        source.push_buffer(data)
     }
 }
 
