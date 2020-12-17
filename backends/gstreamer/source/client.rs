@@ -49,7 +49,7 @@ mod imp {
 
     // The actual data structure that stores our values. This is not accessible
     // directly from the outside.
-    pub struct ServoSrc {
+    pub struct ServoMediaClientSrc {
         cat: gst::DebugCategory,
         appsrc: gst_app::AppSrc,
         srcpad: gst::GhostPad,
@@ -58,7 +58,7 @@ mod imp {
         size: Mutex<Option<i64>>,
     }
 
-    impl ServoSrc {
+    impl ServoMediaClientSrc {
         pub fn set_size(&self, size: i64) {
             if self.seeking.load(Ordering::Relaxed) {
                 // We ignore set_size requests if we are seeking.
@@ -218,11 +218,11 @@ mod imp {
             // 1. be an http, mms, etc. scheme
             // 2. report that it is "bandwidth limited".
             //
-            // 1. is not straightforward because we are using a servosrc scheme for now.
+            // 1. is not straightforward because we are using a ServoMediaClientSrc scheme for now.
             // This may change in the future if we end up handling http/https/data
             // URIs, which is what WebKit does.
             //
-            // For 2. we need to make servosrc handle the scheduling properties query
+            // For 2. we need to make ServoMediaClientSrc handle the scheduling properties query
             // to report that it "is bandwidth limited".
             let ret = match query.view_mut() {
                 gst::QueryView::Scheduling(ref mut q) => {
@@ -245,8 +245,8 @@ mod imp {
     }
 
     // Basic declaration of our type for the GObject type system
-    impl ObjectSubclass for ServoSrc {
-        const NAME: &'static str = "ServoSrc";
+    impl ObjectSubclass for ServoMediaClientSrc {
+        const NAME: &'static str = "ServoMediaClientSrc";
         type ParentType = gst::Bin;
         type Instance = gst::subclass::ElementInstanceStruct<Self>;
         type Class = subclass::simple::ClassStruct<Self>;
@@ -265,7 +265,7 @@ mod imp {
                 gst::GhostPad::new_no_target_from_template(Some("src"), &pad_templ).unwrap();
 
             ghost_pad.set_query_function(|pad, parent, query| {
-                ServoSrc::catch_panic_pad_function(
+                ServoMediaClientSrc::catch_panic_pad_function(
                     parent,
                     || false,
                     |servosrc, element| servosrc.query(pad, element, query),
@@ -274,9 +274,9 @@ mod imp {
 
             Self {
                 cat: gst::DebugCategory::new(
-                    "servosrc",
+                    "ServoMediaClientSrc",
                     gst::DebugColorFlags::empty(),
-                    Some("Servo source"),
+                    Some("Servo Media Client Source"),
                 ),
                 appsrc: app_src,
                 srcpad: ghost_pad,
@@ -297,7 +297,7 @@ mod imp {
         // used on instances of our type
         fn class_init(klass: &mut subclass::simple::ClassStruct<Self>) {
             klass.set_metadata(
-                "Servo Media Source",
+                "Servo Media ClientSource",
                 "Source/Audio/Video",
                 "Feed player with media data",
                 "Servo developers",
@@ -321,7 +321,7 @@ mod imp {
     //
     // This maps between the GObject properties and our internal storage of the
     // corresponding values of the properties.
-    impl ObjectImpl for ServoSrc {
+    impl ObjectImpl for ServoMediaClientSrc {
         glib_object_impl!();
 
         // Called right after construction of a new instance
@@ -353,19 +353,19 @@ mod imp {
     }
 
     // Implementation of gst::Element virtual methods
-    impl ElementImpl for ServoSrc {}
+    impl ElementImpl for ServoMediaClientSrc {}
 
     // Implementation of gst::Bin virtual methods
-    impl BinImpl for ServoSrc {}
+    impl BinImpl for ServoMediaClientSrc {}
 
-    impl URIHandlerImpl for ServoSrc {
+    impl URIHandlerImpl for ServoMediaClientSrc {
         fn get_uri(&self, _element: &gst::URIHandler) -> Option<String> {
             Some("servosrc://".to_string())
         }
 
         fn set_uri(&self, _element: &gst::URIHandler, uri: &str) -> Result<(), glib::Error> {
             if let Ok(uri) = Url::parse(uri) {
-                if uri.scheme() == "servosrc" {
+                if uri.scheme() == "ServoMediaClientSrc" {
                     return Ok(());
                 }
             }
@@ -385,59 +385,64 @@ mod imp {
     }
 }
 
-// Public part of the ServoSrc type. This behaves like a normal
+// Public part of the ServoMediaClientSrc type. This behaves like a normal
 // GObject binding
 glib_wrapper! {
-    pub struct ServoSrc(Object<gst::subclass::ElementInstanceStruct<imp::ServoSrc>,
-                        subclass::simple::ClassStruct<imp::ServoSrc>, ServoSrcClass>)
+    pub struct ServoMediaClientSrc(Object<gst::subclass::ElementInstanceStruct<imp::ServoMediaClientSrc>,
+                        subclass::simple::ClassStruct<imp::ServoMediaClientSrc>, ServoMediaClientSrcClass>)
         @extends gst::Bin, gst::Element, gst::Object, @implements gst::URIHandler;
 
     match fn {
-        get_type => || imp::ServoSrc::get_type().to_glib(),
+        get_type => || imp::ServoMediaClientSrc::get_type().to_glib(),
     }
 }
 
-unsafe impl Send for ServoSrc {}
-unsafe impl Sync for ServoSrc {}
+unsafe impl Send for ServoMediaClientSrc {}
+unsafe impl Sync for ServoMediaClientSrc {}
 
-macro_rules! inner_servosrc_proxy {
+macro_rules! inner_ServoMediaClientSrc_proxy {
     ($fn_name:ident, $return_type:ty) => {
         pub fn $fn_name(&self) -> $return_type {
-            imp::ServoSrc::from_instance(self).$fn_name()
+            imp::ServoMediaClientSrc::from_instance(self).$fn_name()
         }
     };
 
     ($fn_name:ident, $arg1:ident, $arg1_type:ty, $return_type:ty) => {
         pub fn $fn_name(&self, $arg1: $arg1_type) -> $return_type {
-            imp::ServoSrc::from_instance(self).$fn_name($arg1)
+            imp::ServoMediaClientSrc::from_instance(self).$fn_name($arg1)
         }
     };
 }
 
-impl ServoSrc {
+impl ServoMediaClientSrc {
     pub fn set_size(&self, size: i64) {
-        imp::ServoSrc::from_instance(self).set_size(size)
+        imp::ServoMediaClientSrc::from_instance(self).set_size(size)
     }
 
     pub fn set_seek_offset(&self, offset: u64) -> bool {
-        imp::ServoSrc::from_instance(self).set_seek_offset(self, offset)
+        imp::ServoMediaClientSrc::from_instance(self).set_seek_offset(self, offset)
     }
 
     pub fn set_seek_done(&self) {
-        imp::ServoSrc::from_instance(self).set_seek_done();
+        imp::ServoMediaClientSrc::from_instance(self).set_seek_done();
     }
 
     pub fn push_buffer(&self, data: Vec<u8>) -> Result<gst::FlowSuccess, gst::FlowError> {
-        imp::ServoSrc::from_instance(self).push_buffer(self, data)
+        imp::ServoMediaClientSrc::from_instance(self).push_buffer(self, data)
     }
 
-    inner_servosrc_proxy!(end_of_stream, Result<gst::FlowSuccess, gst::FlowError>);
-    inner_servosrc_proxy!(set_callbacks, callbacks, gst_app::AppSrcCallbacks, ());
+    inner_ServoMediaClientSrc_proxy!(end_of_stream, Result<gst::FlowSuccess, gst::FlowError>);
+    inner_ServoMediaClientSrc_proxy!(set_callbacks, callbacks, gst_app::AppSrcCallbacks, ());
 }
 
 // Registers the type for our element, and then registers in GStreamer
-// under the name "servosrc" for being able to instantiate it via e.g.
+// under the name "ServoMediaClientSrc" for being able to instantiate it via e.g.
 // gst::ElementFactory::make().
-pub fn register_servo_src() -> Result<(), glib::BoolError> {
-    gst::Element::register(None, "servosrc", gst::Rank::None, ServoSrc::static_type())
+pub fn register_servo_media_client_src() -> Result<(), glib::BoolError> {
+    gst::Element::register(
+        None,
+        "ServoMediaClientSrc",
+        gst::Rank::None,
+        ServoMediaClientSrc::static_type(),
+    )
 }

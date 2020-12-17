@@ -9,7 +9,6 @@ use gst_player;
 use gst_player::prelude::*;
 use ipc_channel::ipc::{channel, IpcReceiver, IpcSender};
 use media_stream::GStreamerMediaStream;
-use media_stream_source::{register_servo_media_stream_src, ServoMediaStreamSrc};
 use render::GStreamerRender;
 use servo_media_player::audio::AudioRenderer;
 use servo_media_player::context::PlayerGLContext;
@@ -20,7 +19,8 @@ use servo_media_player::{
 };
 use servo_media_streams::registry::{get_stream, MediaStreamId};
 use servo_media_traits::{BackendMsg, ClientContextId, MediaInstance};
-use source::{register_servo_src, ServoSrc};
+use source::client::{register_servo_media_client_src, ServoMediaClientSrc};
+use source::media_stream::{register_servo_media_stream_src, ServoMediaStreamSrc};
 use std::cell::RefCell;
 use std::ops::Range;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -106,7 +106,7 @@ impl AsRef<[f32]> for GStreamerAudioChunk {
 
 #[derive(PartialEq)]
 enum PlayerSource {
-    Seekable(ServoSrc),
+    Seekable(ServoMediaClientSrc),
     Stream(ServoMediaStreamSrc),
 }
 
@@ -527,9 +527,10 @@ impl GStreamerPlayer {
                 "mediastream://".to_value()
             }
             StreamType::Seekable => {
-                register_servo_src()
-                    .map_err(|_| PlayerError::Backend("servosrc registration error".to_owned()))?;
-                "servosrc://".to_value()
+                register_servo_media_client_src().map_err(|_| {
+                    PlayerError::Backend("ServoMediaClientSrc registration error".to_owned())
+                })?;
+                "ServoMediaClientSrc://".to_value()
             }
         };
         player
@@ -701,13 +702,13 @@ impl GStreamerPlayer {
                 let mut inner = inner_clone.lock().unwrap();
                 let source = match inner.stream_type {
                     StreamType::Seekable => {
-                        let servosrc = source
+                        let client_src = source
                             .clone()
-                            .dynamic_cast::<ServoSrc>()
-                            .expect("Source element is expected to be a ServoSrc!");
+                            .dynamic_cast::<ServoMediaClientSrc>()
+                            .expect("Source element is expected to be a ServoMediaClientSrc!");
 
                         if inner.input_size > 0 {
-                            servosrc.set_size(inner.input_size as i64);
+                            client_src.set_size(inner.input_size as i64);
                         }
 
                         let sender_clone = sender.clone();
@@ -715,11 +716,11 @@ impl GStreamerPlayer {
                         let observer_ = observer.clone();
                         let observer__ = observer.clone();
                         let observer___ = observer.clone();
-                        let servosrc_ = servosrc.clone();
+                        let client_src_ = client_src.clone();
                         let enough_data_ = inner.enough_data.clone();
                         let enough_data__ = inner.enough_data.clone();
                         let seek_channel = Arc::new(Mutex::new(SeekChannel::new()));
-                        servosrc.set_callbacks(
+                        client_src.set_callbacks(
                             gst_app::AppSrcCallbacks::new()
                                 .need_data(move |_, _| {
                                     // We block the caller of the setup method until we get
@@ -739,7 +740,8 @@ impl GStreamerPlayer {
                                     notify!(observer__, PlayerEvent::EnoughData);
                                 })
                                 .seek_data(move |_, offset| {
-                                    let (ret, ack_channel) = if servosrc_.set_seek_offset(offset) {
+                                    let (ret, ack_channel) = if client_src_.set_seek_offset(offset)
+                                    {
                                         notify!(
                                             observer___,
                                             PlayerEvent::SeekData(
@@ -754,7 +756,7 @@ impl GStreamerPlayer {
                                         (true, None)
                                     };
 
-                                    servosrc_.set_seek_done();
+                                    client_src_.set_seek_done();
                                     if let Some(ack_channel) = ack_channel {
                                         ack_channel.send(()).unwrap();
                                     }
@@ -763,7 +765,7 @@ impl GStreamerPlayer {
                                 .build(),
                         );
 
-                        PlayerSource::Seekable(servosrc)
+                        PlayerSource::Seekable(client_src)
                     }
                     StreamType::Stream => {
                         let media_stream_src = source
